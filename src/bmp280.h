@@ -45,6 +45,7 @@ typedef void *(*BMP280GetInstBuf)(void *user_data);
 
 typedef enum {
     BMP280_RESULT_CODE_OK = 0,
+    BMP280_RESULT_CODE_NO_MEM,
 } BMP280ResultCode;
 
 typedef struct {

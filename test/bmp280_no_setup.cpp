@@ -44,3 +44,18 @@ TEST(BMP280NoSetup, CreateReturnsBufReturnedFromGetInstBuf)
     CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
     CHECK_EQUAL((void *)&inst_buf, (void *)bmp280);
 }
+
+TEST(BMP280NoSetup, CreateReturnsNoMemWhenGetInstBufReturnsNull)
+{
+    mock()
+        .expectOneCall("mock_bmp280_get_inst_buf")
+        .withParameter("user_data", get_inst_buf_user_data)
+        .andReturnValue((void *)NULL);
+
+    BMP280 bmp280;
+    BMP280InitCfg cfg;
+    populate_default_init_cfg(&cfg);
+    uint8_t rc = bmp280_create(&bmp280, &cfg);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_NO_MEM, rc);
+}
