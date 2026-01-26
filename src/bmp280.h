@@ -43,6 +43,10 @@ typedef struct BMP280Struct *BMP280;
  */
 typedef void *(*BMP280GetInstBuf)(void *user_data);
 
+typedef enum {
+    BMP280_RESULT_CODE_OK = 0,
+} BMP280ResultCode;
+
 typedef struct {
     BMP280GetInstBuf get_inst_buf;
     void *get_inst_buf_user_data;

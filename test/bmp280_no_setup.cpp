@@ -1,0 +1,46 @@
+#include "CppUTest/TestHarness.h"
+#include "CppUTestExt/MockSupport.h"
+
+#include "bmp280.h"
+/* To include the definition of struct BMP280Struct, so that we can define an instance to return from
+ * mock_bmp280_get_inst_buf. */
+#include "bmp280_private.h"
+#include "mock_cfg_functions.h"
+
+/* To return from mock_bmp280_get_inst_buf */
+static struct BMP280Struct inst_buf;
+
+/* User data parameters to pass to bh1750_create in the init cfg */
+static void *get_inst_buf_user_data = (void *)0x80;
+
+// clang-format off
+TEST_GROUP(BMP280NoSetup){
+    void setup() {
+        /* Order of expected calls is important for these tests. Fail the test if the expected mock calls do not happen
+        in the specified order. */
+        mock().strictOrder();
+    }
+};
+// clang-format on
+
+static void populate_default_init_cfg(BMP280InitCfg *const cfg)
+{
+    cfg->get_inst_buf = mock_bmp280_get_inst_buf;
+    cfg->get_inst_buf_user_data = get_inst_buf_user_data;
+}
+
+TEST(BMP280NoSetup, CreateReturnsBufReturnedFromGetInstBuf)
+{
+    mock()
+        .expectOneCall("mock_bmp280_get_inst_buf")
+        .withParameter("user_data", get_inst_buf_user_data)
+        .andReturnValue((void *)&inst_buf);
+
+    BMP280 bmp280;
+    BMP280InitCfg cfg;
+    populate_default_init_cfg(&cfg);
+    uint8_t rc = bmp280_create(&bmp280, &cfg);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+    CHECK_EQUAL((void *)&inst_buf, (void *)bmp280);
+}
