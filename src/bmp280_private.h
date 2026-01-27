@@ -15,7 +15,16 @@ extern "C"
  * can include this header. The user module needs to know sizeof(struct BMP280Struct), so that it knows the size of
  * BMP280 instances at compile time. This way, it has an option to allocate a static array with size equal to the
  * required number of instances. */
-struct BMP280Struct {};
+struct BMP280Struct {
+    /** User-defined function that performs BMP280 register read. */
+    BMP280ReadRegs read_regs;
+    /** User data to pass to read_regs. */
+    void *read_regs_user_data;
+    /** Callback to execute once the current sequence is complete. */
+    BMP280CompleteCb complete_cb;
+    /** User data to pass to complete_cb. */
+    void *complete_cb_user_data;
+};
 
 #ifdef __cplusplus
 }

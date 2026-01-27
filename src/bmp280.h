@@ -8,6 +8,8 @@ extern "C"
 
 #include <stdint.h>
 
+#include "bmp280_defs.h"
+
 typedef struct BMP280Struct *BMP280;
 
 /**
@@ -43,18 +45,31 @@ typedef struct BMP280Struct *BMP280;
  */
 typedef void *(*BMP280GetInstBuf)(void *user_data);
 
+/**
+ * @brief Callback type to execute when the BMP280 driver finishes an operation.
+ *
+ * @param rc Result code that indicates success or the reason for failure. One of @ref BMP280ResultCode.
+ * @param user_data User data.
+ */
+typedef void (*BMP280CompleteCb)(uint8_t rc, void *user_data);
+
 typedef enum {
     BMP280_RESULT_CODE_OK = 0,
-    BMP280_RESULT_CODE_NO_MEM,
     BMP280_RESULT_CODE_INVAL_ARG,
+    BMP280_RESULT_CODE_NO_MEM,
+    BMP280_RESULT_CODE_IO_ERR,
 } BMP280ResultCode;
 
 typedef struct {
     BMP280GetInstBuf get_inst_buf;
     void *get_inst_buf_user_data;
+    BMP280ReadRegs read_regs;
+    void *read_regs_user_data;
 } BMP280InitCfg;
 
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg);
+
+uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
 }

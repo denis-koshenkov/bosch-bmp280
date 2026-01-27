@@ -3,6 +3,7 @@ add_executable(run_tests)
 target_sources(run_tests PRIVATE
     main.cpp
     bmp280_no_setup.cpp
+    bmp280.cpp
 )
 
 add_subdirectory(mock)
