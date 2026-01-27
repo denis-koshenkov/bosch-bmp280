@@ -61,12 +61,26 @@ typedef enum {
 } BMP280ResultCode;
 
 typedef struct {
+    /** User-defined function to get memory buffer for BMP280 instance. Cannot be NULL. Called once during @ref
+     * bmp280_create. */
     BMP280GetInstBuf get_inst_buf;
+    /** User data to pass to get_inst_buf function. */
     void *get_inst_buf_user_data;
+    /** User-defined function to perform BMP280 register read over I2C or SPI. Cannot be NULL. */
     BMP280ReadRegs read_regs;
+    /** User data to pass to read_regs function. */
     void *read_regs_user_data;
 } BMP280InitCfg;
 
+/**
+ * @brief Create a BMP280 instance.
+ *
+ * @param[out] inst Created instance is written to this parameter in case of success.
+ * @param[in] cfg Initialization config.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully created BMP280 instance.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p inst is NULL, or @p cfg is not a valid init cfg.
+ */
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg);
 
 /**
