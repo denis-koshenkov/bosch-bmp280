@@ -69,6 +69,21 @@ static void generic_io_complete_cb(uint8_t io_rc, void *user_data)
     execute_complete_cb(self, rc);
 }
 
+/**
+ * @brief Read chip ID from the chip ID regsiter.
+ *
+ * @pre @p self has been validated to not be NULL.
+ *
+ * @param[in] self BMP280 instance.
+ * @param[out] chip_id Chip id is written to this parameter.
+ * @param[in] cb Callback to execute once IO transaction to read chip id is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ */
+static void read_chip_id(BMP280 self, uint8_t *const chip_id, BMP280_IOCompleteCb cb, void *user_data)
+{
+    self->read_regs(BMP280_CHIP_ID_REG_ADDR, 1, chip_id, self->read_regs_user_data, cb, user_data);
+}
+
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
 {
     if (!inst || !is_valid_cfg(cfg)) {
@@ -89,7 +104,6 @@ uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
 uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb cb, void *user_data)
 {
     start_sequence(self, cb, user_data);
-    self->read_regs(BMP280_CHIP_ID_REG_ADDR, 1, chip_id, self->read_regs_user_data, generic_io_complete_cb,
-                    (void *)self);
+    read_chip_id(self, chip_id, generic_io_complete_cb, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
