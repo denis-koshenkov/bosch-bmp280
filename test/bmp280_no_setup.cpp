@@ -90,3 +90,14 @@ TEST(BMP280NoSetup, CreateGetInstBufNull)
 
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
+
+TEST(BMP280NoSetup, CreateReadRegsNull)
+{
+    BMP280 bmp280;
+    BMP280InitCfg cfg;
+    populate_default_init_cfg(&cfg);
+    cfg.read_regs = NULL;
+    uint8_t rc = bmp280_create(&bmp280, &cfg);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}

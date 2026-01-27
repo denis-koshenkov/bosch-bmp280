@@ -20,6 +20,7 @@ static bool is_valid_cfg(const BMP280InitCfg *const cfg)
     return (
         cfg
         && cfg->get_inst_buf
+        && cfg->read_regs
     );
     // clang-format on
 }
