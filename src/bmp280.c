@@ -43,6 +43,21 @@ static void start_sequence(BMP280 self, BMP280CompleteCb cb, void *user_data)
     self->complete_cb_user_data = user_data;
 }
 
+/**
+ * @brief Execute complete callback, if one is present.
+ *
+ * @pre @p self has been validated to not be NULL.
+ *
+ * @param self BMP280 instance.
+ * @param rc Result code to pass to complete cb.
+ */
+static void execute_complete_cb(BMP280 self, uint8_t rc)
+{
+    if (self->complete_cb) {
+        self->complete_cb(rc, self->complete_cb_user_data);
+    }
+}
+
 static void generic_io_complete_cb(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
@@ -51,7 +66,7 @@ static void generic_io_complete_cb(uint8_t io_rc, void *user_data)
     }
 
     uint8_t rc = (io_rc == BMP280_IO_RESULT_CODE_OK) ? BMP280_RESULT_CODE_OK : BMP280_RESULT_CODE_IO_ERR;
-    self->complete_cb(rc, self->complete_cb_user_data);
+    execute_complete_cb(self, rc);
 }
 
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
