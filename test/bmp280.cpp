@@ -64,10 +64,8 @@ TEST_GROUP(BMP280){
 };
 // clang-format on
 
-TEST(BMP280, GetChipIdReadFail)
+static void test_get_chip_id(uint8_t read_regs_data, uint8_t complete_cb_rc, uint8_t read_io_rc)
 {
-    /* Value does not matter since read fails */
-    uint8_t read_regs_data = 0x42;
     mock()
         .expectOneCall("mock_bmp280_read_regs")
         .withParameter("start_addr", 0xD0)
@@ -82,11 +80,40 @@ TEST(BMP280, GetChipIdReadFail)
     uint8_t chip_id;
     void *complete_cb_user_data = (void *)0xA0;
     uint8_t rc = bmp280_get_chip_id(bmp280, &chip_id, mock_bmp280_complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
 
     mock()
         .expectOneCall("mock_bmp280_complete_cb")
-        .withParameter("rc", BMP280_RESULT_CODE_IO_ERR)
+        .withParameter("rc", complete_cb_rc)
         .withParameter("user_data", complete_cb_user_data);
+    read_regs_complete_cb(read_io_rc, read_regs_complete_cb_user_data);
+}
+
+TEST(BMP280, GetChipIdReadFail)
+{
+    /* Value does not matter since read fails */
+    uint8_t read_regs_data = 0x42;
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_IO_ERR;
     /* Fail read regs */
-    read_regs_complete_cb(BMP280_IO_RESULT_CODE_ERR, read_regs_complete_cb_user_data);
+    uint8_t read_io_rc = BMP280_IO_RESULT_CODE_ERR;
+    test_get_chip_id(read_regs_data, complete_cb_rc, read_io_rc);
+}
+
+TEST(BMP280, GetChipIdReadSuccess)
+{
+    /* 0x58 is the expected chip id */
+    uint8_t read_regs_data = 0x58;
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_OK;
+    uint8_t read_io_rc = BMP280_IO_RESULT_CODE_OK;
+    test_get_chip_id(read_regs_data, complete_cb_rc, read_io_rc);
+}
+
+TEST(BMP280, GetChipIdReadWrongChipId)
+{
+    /* Chip id is not the expected one. Our function should still succeed, since it only reads out the chip id, but does
+     * not check for its correctness. */
+    uint8_t read_regs_data = 0x59;
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_OK;
+    uint8_t read_io_rc = BMP280_IO_RESULT_CODE_OK;
+    test_get_chip_id(read_regs_data, complete_cb_rc, read_io_rc);
 }

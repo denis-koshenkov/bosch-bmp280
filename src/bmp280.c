@@ -50,7 +50,8 @@ static void generic_io_complete_cb(uint8_t io_rc, void *user_data)
         return;
     }
 
-    self->complete_cb(BMP280_RESULT_CODE_IO_ERR, self->complete_cb_user_data);
+    uint8_t rc = (io_rc == BMP280_IO_RESULT_CODE_OK) ? BMP280_RESULT_CODE_OK : BMP280_RESULT_CODE_IO_ERR;
+    self->complete_cb(rc, self->complete_cb_user_data);
 }
 
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
