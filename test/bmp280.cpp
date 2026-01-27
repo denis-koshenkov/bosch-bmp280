@@ -129,3 +129,22 @@ TEST(BMP280, GetChipIdCompleteCbNull)
     uint8_t read_io_rc = BMP280_IO_RESULT_CODE_OK;
     test_get_chip_id(read_regs_data, complete_cb_rc, read_io_rc, NULL);
 }
+
+TEST(BMP280, GetChipIdSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t chip_id;
+    uint8_t rc = bmp280_get_chip_id(NULL, &chip_id, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, GetChipIdChipIdNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_get_chip_id(bmp280, NULL, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}

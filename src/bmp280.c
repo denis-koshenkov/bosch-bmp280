@@ -103,6 +103,10 @@ uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
 
 uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb cb, void *user_data)
 {
+    if (!self || !chip_id) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
     start_sequence(self, cb, user_data);
     read_chip_id(self, chip_id, generic_io_complete_cb, (void *)self);
     return BMP280_RESULT_CODE_OK;
