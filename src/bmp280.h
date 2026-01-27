@@ -69,6 +69,22 @@ typedef struct {
 
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg);
 
+/**
+ * @brief Read BMP280 chip id from the device.
+ *
+ * Once the chip id is read out or an error occurs, @p cb is executed. "rc" parameter of @p cb indicates success or
+ * reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully read chip id.
+ * - @ref BMP280_RESULT_CODE_IO_ERR IO transaction to read the chip id failed.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[out] chip_id Chip id is written to this parameter in case of success.
+ * @param[in] cb Callback to execute once chip id has been read out.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated chip id readout.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL or @p chip_id is NULL.
+ */
 uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
