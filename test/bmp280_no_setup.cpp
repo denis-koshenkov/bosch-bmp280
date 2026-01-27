@@ -59,3 +59,20 @@ TEST(BMP280NoSetup, CreateReturnsNoMemWhenGetInstBufReturnsNull)
 
     CHECK_EQUAL(BMP280_RESULT_CODE_NO_MEM, rc);
 }
+
+TEST(BMP280NoSetup, CreateReturnsInvalArgWhenCfgIsNull)
+{
+    BMP280 bmp280;
+    uint8_t rc = bmp280_create(&bmp280, NULL);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280NoSetup, CreateReturnsInvalArgInstNull)
+{
+    BMP280InitCfg cfg;
+    populate_default_init_cfg(&cfg);
+    uint8_t rc = bmp280_create(NULL, &cfg);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
