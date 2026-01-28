@@ -107,3 +107,25 @@ TEST(BMP280NoSetup, CreateReadRegsNull)
 
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
+
+TEST(BMP280NoSetup, CreateWriteRegNull)
+{
+    BMP280 bmp280;
+    BMP280InitCfg cfg;
+    populate_default_init_cfg(&cfg);
+    cfg.write_reg = NULL;
+    uint8_t rc = bmp280_create(&bmp280, &cfg);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280NoSetup, CreateStartTimerNull)
+{
+    BMP280 bmp280;
+    BMP280InitCfg cfg;
+    populate_default_init_cfg(&cfg);
+    cfg.start_timer = NULL;
+    uint8_t rc = bmp280_create(&bmp280, &cfg);
+
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
