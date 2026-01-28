@@ -13,6 +13,10 @@ void *mock_bmp280_get_inst_buf(void *user_data);
 void mock_bmp280_read_regs(uint8_t start_addr, size_t num_regs, uint8_t *data, void *user_data, BMP280_IOCompleteCb cb,
                            void *cb_user_data);
 
+void mock_bmp280_write_reg(uint8_t addr, uint8_t reg_val, void *user_data, BMP280_IOCompleteCb cb, void *cb_user_data);
+
+void mock_bmp280_start_timer(uint32_t duration_ms, void *user_data, BMP280TimerExpiredCb cb, void *cb_user_data);
+
 #ifdef __cplusplus
 }
 #endif

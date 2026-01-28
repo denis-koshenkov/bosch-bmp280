@@ -13,6 +13,8 @@ static struct BMP280Struct inst_buf;
 /* User data parameters to pass to bmp280_create in the init cfg */
 static void *get_inst_buf_user_data = (void *)0x80;
 static void *read_regs_user_data = (void *)0x81;
+static void *write_reg_user_data = (void *)0x82;
+static void *start_timer_user_data = (void *)0x83;
 
 // clang-format off
 TEST_GROUP(BMP280NoSetup){
@@ -30,6 +32,10 @@ static void populate_default_init_cfg(BMP280InitCfg *const cfg)
     cfg->get_inst_buf_user_data = get_inst_buf_user_data;
     cfg->read_regs = mock_bmp280_read_regs;
     cfg->read_regs_user_data = read_regs_user_data;
+    cfg->write_reg = mock_bmp280_write_reg;
+    cfg->write_reg_user_data = write_reg_user_data;
+    cfg->start_timer = mock_bmp280_start_timer;
+    cfg->start_timer_user_data = start_timer_user_data;
 }
 
 TEST(BMP280NoSetup, CreateReturnsBufReturnedFromGetInstBuf)

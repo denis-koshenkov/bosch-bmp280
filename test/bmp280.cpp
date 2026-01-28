@@ -16,6 +16,8 @@ static struct BMP280Struct inst_buf;
 /* User data parameters to pass to bmp280_create in the init cfg */
 static void *get_inst_buf_user_data = (void *)0x90;
 static void *read_regs_user_data = (void *)0x91;
+static void *write_reg_user_data = (void *)0x92;
+static void *start_timer_user_data = (void *)0x93;
 
 /* BMP280 instance used by all tests */
 static BMP280 bmp280;
@@ -25,6 +27,12 @@ static BMP280InitCfg init_cfg;
 /* Populated by mock object whenever mock_bmp280_read_reg is called */
 static BMP280_IOCompleteCb read_regs_complete_cb;
 static void *read_regs_complete_cb_user_data;
+/* Populated by mock object whenever mock_bmp280_write_reg is called */
+static BMP280_IOCompleteCb write_reg_complete_cb;
+static void *write_reg_complete_cb_user_data;
+/* Populated by mock object whenever mock_bmp280_start_timer is called */
+static BMP280TimerExpiredCb timer_expired_cb;
+static void *timer_expired_cb_user_data;
 
 static void populate_default_init_cfg(BMP280InitCfg *const cfg)
 {
@@ -32,6 +40,10 @@ static void populate_default_init_cfg(BMP280InitCfg *const cfg)
     cfg->get_inst_buf_user_data = get_inst_buf_user_data;
     cfg->read_regs = mock_bmp280_read_regs;
     cfg->read_regs_user_data = read_regs_user_data;
+    cfg->write_reg = mock_bmp280_write_reg;
+    cfg->write_reg_user_data = write_reg_user_data;
+    cfg->start_timer = mock_bmp280_start_timer;
+    cfg->start_timer_user_data = start_timer_user_data;
 }
 
 // clang-format off
@@ -44,11 +56,17 @@ TEST_GROUP(BMP280){
         /* Reset all values populated by mock object */
         read_regs_complete_cb = NULL;
         read_regs_complete_cb_user_data = NULL;
+        write_reg_complete_cb = NULL;
+        write_reg_complete_cb_user_data = NULL;
 
         /* Pass pointers so that the mock object populates them with callbacks and user data, so that the test can simulate
          * calling these callbacks. */
         mock().setData("readRegsCompleteCb", (void *)&read_regs_complete_cb);
         mock().setData("readRegsCompleteCbUserData", &read_regs_complete_cb_user_data);
+        mock().setData("writeRegCompleteCb", (void *)&write_reg_complete_cb);
+        mock().setData("writeRegCompleteCbUserData", &write_reg_complete_cb_user_data);
+        mock().setData("timerExpiredCb", (void *)&timer_expired_cb);
+        mock().setData("timerExpiredCbUserData", &timer_expired_cb_user_data);
 
         bmp280 = NULL;
         memset(&init_cfg, 0, sizeof(BMP280InitCfg));
@@ -147,4 +165,57 @@ TEST(BMP280, GetChipIdChipIdNull)
 
     uint8_t rc = bmp280_get_chip_id(bmp280, NULL, mock_bmp280_complete_cb, NULL);
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+static void test_reset_with_delay(uint8_t complete_cb_rc, uint8_t write_io_rc, BMP280CompleteCb complete_cb)
+{
+    void *complete_cb_user_data = (void *)0xA1;
+    /* Called from bmp280_reset_with_delay */
+    mock()
+        .expectOneCall("mock_bmp280_write_reg")
+        .withParameter("addr", 0xE0)
+        .withParameter("reg_val", 0xB6)
+        .withParameter("user_data", write_reg_user_data)
+        .ignoreOtherParameters();
+    if (write_io_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Called from write_reg_complete_cb */
+        mock()
+            .expectOneCall("mock_bmp280_start_timer")
+            .withParameter("duration_ms", 2)
+            .withParameter("user_data", start_timer_user_data)
+            .ignoreOtherParameters();
+    }
+    if (complete_cb) {
+        /* Called either from write_reg_complete_cb (if write reg failed), or from timer_expired_cb (if write reg
+         * succeeded) */
+        mock()
+            .expectOneCall("mock_bmp280_complete_cb")
+            .withParameter("rc", complete_cb_rc)
+            .withParameter("user_data", complete_cb_user_data);
+    }
+
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_reset_with_delay(bmp280, complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    write_reg_complete_cb(write_io_rc, write_reg_complete_cb_user_data);
+    if (write_io_rc == BMP280_IO_RESULT_CODE_OK) {
+        timer_expired_cb(timer_expired_cb_user_data);
+    }
+}
+
+TEST(BMP280, ResetWithDelayWriteFail)
+{
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_IO_ERR;
+    uint8_t write_io_rc = BMP280_IO_RESULT_CODE_ERR;
+    test_reset_with_delay(complete_cb_rc, write_io_rc, mock_bmp280_complete_cb);
+}
+
+TEST(BMP280, ResetWithDelayWriteSuccess)
+{
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_OK;
+    uint8_t write_io_rc = BMP280_IO_RESULT_CODE_OK;
+    test_reset_with_delay(complete_cb_rc, write_io_rc, mock_bmp280_complete_cb);
 }

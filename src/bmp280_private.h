@@ -20,6 +20,14 @@ struct BMP280Struct {
     BMP280ReadRegs read_regs;
     /** User data to pass to read_regs. */
     void *read_regs_user_data;
+    /** User-defined function that performs BMP280 register write. */
+    BMP280WriteReg write_reg;
+    /** User data to pass to write_reg. */
+    void *write_reg_user_data;
+    /** User-defined function to start a timer that schedules a callback execution. */
+    BMP280StartTimer start_timer;
+    /** User data to pass to start_timer function. */
+    void *start_timer_user_data;
     /** Callback to execute once the current sequence is complete. */
     BMP280CompleteCb complete_cb;
     /** User data to pass to complete_cb. */

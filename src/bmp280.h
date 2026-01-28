@@ -70,6 +70,14 @@ typedef struct {
     BMP280ReadRegs read_regs;
     /** User data to pass to read_regs function. */
     void *read_regs_user_data;
+    /** User-defined function to perform BMP280 register write over I2C or SPI. Cannot be NULL. */
+    BMP280WriteReg write_reg;
+    /** User data to pass to write_reg function. */
+    void *write_reg_user_data;
+    /** User-defined function to start a timer that schedules a callback execution. Cannot be NULL. */
+    BMP280StartTimer start_timer;
+    /** User data to pass to start_timer function. */
+    void *start_timer_user_data;
 } BMP280InitCfg;
 
 /**
@@ -100,6 +108,27 @@ uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg);
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL or @p chip_id is NULL.
  */
 uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb cb, void *user_data);
+
+/**
+ * @brief Reset BMP280 and wait for the duration of power up sequence.
+ *
+ * Resets BMP280 by writing to the reset register and waits for 2 ms to give the device time to perform the reset. 2 ms
+ * is specified in the datasheet as the time of startup procedure which includes the power on reset sequence. This means
+ * the power on reset sequence itself cannot take longer than 2 ms, so it is guaranteed that the device has finished
+ * resetting after 2 ms.
+ *
+ * Once the reset is complete or an error occurs, @p cb is executed. "rc" parameter of @p cb indicates success or
+ * reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully reset the device.
+ * - @ref BMP280_RESULT_CODE_IO_ERR IO transaction to write the reset register failed.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[in] cb Callback to execute once reset with delay is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated reset with delay sequence.
+ */
+uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
 }
