@@ -219,3 +219,19 @@ TEST(BMP280, ResetWithDelayWriteSuccess)
     uint8_t write_io_rc = BMP280_IO_RESULT_CODE_OK;
     test_reset_with_delay(complete_cb_rc, write_io_rc, mock_bmp280_complete_cb);
 }
+
+TEST(BMP280, ResetWithDelayCbNull)
+{
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_OK;
+    uint8_t write_io_rc = BMP280_IO_RESULT_CODE_OK;
+    test_reset_with_delay(complete_cb_rc, write_io_rc, NULL);
+}
+
+TEST(BMP280, ResetWithDelaySelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_reset_with_delay(NULL, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}

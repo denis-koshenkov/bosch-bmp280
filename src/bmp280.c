@@ -165,6 +165,10 @@ uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb
 
 uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_data)
 {
+    if (!self) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
     start_sequence(self, cb, user_data);
     send_reset_cmd(self, reset_with_delay_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
