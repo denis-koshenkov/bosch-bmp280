@@ -60,6 +60,24 @@ typedef enum {
     BMP280_RESULT_CODE_IO_ERR,
 } BMP280ResultCode;
 
+/* There is no option to read out just pressure, because temperature value is needed to convert raw pressure values
+ * to hPa, so temperature has to be read out either way. If only pressure value is needed, use
+ * BMP280_MEAS_TYPE_TEMP_AND_PRES and ignore the temperature value. */
+typedef enum {
+    /** Read out only temperature. */
+    BMP280_MEAS_TYPE_ONLY_TEMP,
+    /** Read out both temperature and pressure. */
+    BMP280_MEAS_TYPE_TEMP_AND_PRES,
+} BMP280MeasType;
+
+typedef struct {
+    /** Temperature in degrees Celsius, resolution is 0.01. Output value "5123" equals 51.23 degrees Celsius. */
+    int32_t temperature;
+    /** Pressure in Pa in Q24.8 format (24 integer bits and 8 fractional bits). Output value "24674867" represents
+     * 24674867/256 = 96386.2 Pa = 963.862 hPa. */
+    uint32_t pressure;
+} BMP280Meas;
+
 typedef struct {
     /** User-defined function to get memory buffer for BMP280 instance. Cannot be NULL. Called once during @ref
      * bmp280_create. */
@@ -129,6 +147,9 @@ uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb
  * @retval BMP280_RESULT_CODE_OK Successfully initiated reset with delay sequence.
  */
 uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_data);
+
+uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t meas_time_ms, BMP280Meas *const meas,
+                                     BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
 }
