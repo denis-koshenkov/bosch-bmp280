@@ -11,6 +11,9 @@ extern "C"
  * otherwise they would know about the BMP280Struct struct definition and can manipulate private data of a BMP280
  * instance directly. */
 
+/** Must be equal to the maximum number of registers that can be read in a single call to read_regs. */
+#define BMP280_READ_BUF_SIZE 6
+
 /* Defined in a separate header, so that both bmp280.c and the user module implementing BMP280GetInstBuf callback
  * can include this header. The user module needs to know sizeof(struct BMP280Struct), so that it knows the size of
  * BMP280 instances at compile time. This way, it has an option to allocate a static array with size equal to the
@@ -41,6 +44,8 @@ struct BMP280Struct {
      * ctrl_meas reg is written to set forced mode, the bits not related to mode stay the same.
      */
     uint8_t saved_reg_val;
+    /** Buffer to use for read reg operations. */
+    uint8_t read_buf[BMP280_READ_BUF_SIZE];
 };
 
 #ifdef __cplusplus

@@ -311,7 +311,7 @@ static void test_read_meas_forced_mode(const ReadMeasForcedModeTestCfg *const cf
                 .expectOneCall("mock_bmp280_read_regs")
                 .withParameter("start_addr", start_addr)
                 .withParameter("num_regs", cfg->read_3_data_size)
-                .withOutputParameterReturning("data", &cfg->read_3_data, cfg->read_3_data_size)
+                .withOutputParameterReturning("data", cfg->read_3_data, cfg->read_3_data_size)
                 .withParameter("user_data", read_regs_user_data)
                 .ignoreOtherParameters();
         }
@@ -453,7 +453,7 @@ TEST(BMP280, ReadMeasForcedModeRead3Fail)
 TEST(BMP280, ReadMeasForcedModeOnlyTemp)
 {
     /* 519888, example from datasheet p.23 */
-    uint8_t read_3_data[] = {0x07, 0xEE, 0xD0};
+    uint8_t read_3_data[] = {0x7E, 0xED, 0x0};
     int32_t temperature = 2508;
     ReadMeasForcedModeTestCfg cfg = {
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
@@ -476,8 +476,8 @@ TEST(BMP280, ReadMeasForcedModeOnlyTemp)
 
 TEST(BMP280, ReadMeasForcedModeTempAndPres)
 {
-    /* Temp 519888, pres 415148, example from datasheet p.23 */
-    uint8_t read_3_data[] = {0x06, 0x55, 0xAC, 0x07, 0xEE, 0xD0};
+    /* Pres 415148, temp 519888, example from datasheet p.23 */
+    uint8_t read_3_data[] = {0x06, 0x55, 0xAC, 0x7E, 0xED, 0x0};
     int32_t temperature = 2508;
     uint32_t pressure = 25767236;
     ReadMeasForcedModeTestCfg cfg = {
@@ -495,6 +495,30 @@ TEST(BMP280, ReadMeasForcedModeTempAndPres)
         .complete_cb_rc = BMP280_RESULT_CODE_OK,
         .temperature = &temperature,
         .pressure = &pressure,
+    };
+    test_read_meas_forced_mode(&cfg);
+}
+
+TEST(BMP280, ReadMeasForcedModeOnlyTemp2)
+{
+    /* Temp 500000 */
+    uint8_t read_3_data[] = {0x7A, 0x12, 0x0};
+    int32_t temperature = 1885;
+    ReadMeasForcedModeTestCfg cfg = {
+        .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
+        .read_1_data = 0x30,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Keeps the 6 MSb the same as read_1_data, and sets the 2 LSb to 01 (forced mode) */
+        .write_2_data = 0x31,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .meas_time_ms = 5,
+        .read_3_data = read_3_data,
+        .read_3_data_size = 3,
+        .read_3_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+        .temperature = &temperature,
+        .pressure = NULL,
     };
     test_read_meas_forced_mode(&cfg);
 }

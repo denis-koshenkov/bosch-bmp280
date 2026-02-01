@@ -25,6 +25,12 @@ typedef enum {
     BMP280_POWER_MODE_NORMAL,
 } BMP280PowerMode;
 
+typedef struct {
+    uint16_t dig_T1;
+    int16_t dig_T2;
+    int16_t dig_T3;
+} CalibTemp;
+
 /**
  * @brief Check if init config is valid.
  *
@@ -134,6 +140,35 @@ static void execute_complete_cb(BMP280 self, uint8_t rc)
     }
 }
 
+static int32_t compensate_temp(const CalibTemp *const calib_temp, int32_t temp_raw)
+{
+    uint16_t dig_T1 = calib_temp->dig_T1;
+    int16_t dig_T2 = calib_temp->dig_T2;
+    int16_t dig_T3 = calib_temp->dig_T3;
+
+    int32_t var1 = ((((temp_raw >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;
+    int32_t var2 =
+        (((((temp_raw >> 4) - ((int32_t)dig_T1)) * ((temp_raw >> 4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)dig_T3)) >>
+        14;
+    int32_t t_fine = var1 + var2;
+    int32_t T = (t_fine * 5 + 128) >> 8;
+    return T;
+}
+
+/**
+ * @brief Convert temperature bytes from BMP280 temperature registers to raw temperature value.
+ *
+ * @param[in] data Must point to a buffer of 3 bytes that contains register values of temp_msb, temp_lsb, temp_xlsb (in
+ * that order).
+ *
+ * @return int32_t Raw temperature value.
+ */
+static int32_t temp_bytes_to_raw_temp_val(const uint8_t *const data)
+{
+    uint32_t t = (((uint32_t)data[0]) << 12) | (((uint32_t)data[1]) << 4) | (((uint32_t)(data[2] & 0xF0)) >> 4);
+    return (int32_t)t;
+}
+
 static void generic_io_complete_cb(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
@@ -178,7 +213,24 @@ static void read_meas_forced_mode_part_5(uint8_t io_rc, void *user_data)
         return;
     }
 
-    (self->meas)->temperature = 2508;
+    size_t temp_start_idx = 0;
+    if (self->meas_type == BMP280_MEAS_TYPE_ONLY_TEMP) {
+        temp_start_idx = 0;
+    } else if (self->meas_type == BMP280_MEAS_TYPE_TEMP_AND_PRES) {
+        temp_start_idx = 3;
+    } else {
+        /* Invalid meas type */
+        execute_complete_cb(self, BMP280_RESULT_CODE_DRIVER_ERR);
+        return;
+    }
+    int32_t temp_raw = temp_bytes_to_raw_temp_val(&self->read_buf[temp_start_idx]);
+
+    CalibTemp calib_temp = {
+        .dig_T1 = 27504,
+        .dig_T2 = 26435,
+        .dig_T3 = -1000,
+    };
+    (self->meas)->temperature = compensate_temp(&calib_temp, temp_raw);
     (self->meas)->pressure = 25767236;
     execute_complete_cb(self, BMP280_RESULT_CODE_OK);
 }
@@ -200,8 +252,7 @@ static void read_meas_forced_mode_part_4(void *user_data)
         return;
     }
 
-    uint8_t read_buf[6];
-    self->read_regs(start_addr, num_regs, read_buf, self->read_regs_user_data, read_meas_forced_mode_part_5,
+    self->read_regs(start_addr, num_regs, self->read_buf, self->read_regs_user_data, read_meas_forced_mode_part_5,
                     (void *)self);
 }
 
