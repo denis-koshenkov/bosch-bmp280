@@ -31,6 +31,18 @@ typedef struct {
     int16_t dig_T3;
 } CalibTemp;
 
+typedef struct {
+    uint16_t dig_P1;
+    int16_t dig_P2;
+    int16_t dig_P3;
+    int16_t dig_P4;
+    int16_t dig_P5;
+    int16_t dig_P6;
+    int16_t dig_P7;
+    int16_t dig_P8;
+    int16_t dig_P9;
+} CalibPres;
+
 /**
  * @brief Check if init config is valid.
  *
@@ -140,7 +152,17 @@ static void execute_complete_cb(BMP280 self, uint8_t rc)
     }
 }
 
-static int32_t compensate_temp(const CalibTemp *const calib_temp, int32_t temp_raw)
+/**
+ * @brief Compensate temperature using raw temperature value and temperature calibration values.
+ *
+ * @param[in] calib_temp Temperature calibration values.
+ * @param[in] temp_raw Raw temperature value.
+ * @param[out] t_fine Fine resolution temperature value is written to this parameter, so that it can be used in pressure
+ * compensation calculation.
+ *
+ * @return int32_t Temperature in DegC, resolution is 0.01 DegC. Output value of "5123" equals 51.23 DegC.
+ */
+static int32_t compensate_temp(const CalibTemp *const calib_temp, int32_t temp_raw, int32_t *const t_fine)
 {
     uint16_t dig_T1 = calib_temp->dig_T1;
     int16_t dig_T2 = calib_temp->dig_T2;
@@ -150,20 +172,50 @@ static int32_t compensate_temp(const CalibTemp *const calib_temp, int32_t temp_r
     int32_t var2 =
         (((((temp_raw >> 4) - ((int32_t)dig_T1)) * ((temp_raw >> 4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)dig_T3)) >>
         14;
-    int32_t t_fine = var1 + var2;
-    int32_t T = (t_fine * 5 + 128) >> 8;
+    *t_fine = var1 + var2;
+    int32_t T = (*t_fine * 5 + 128) >> 8;
     return T;
 }
 
 /**
- * @brief Convert temperature bytes from BMP280 temperature registers to raw temperature value.
+ * @brief Compensate pressure using raw pressure value and pressure calibration values.
  *
- * @param[in] data Must point to a buffer of 3 bytes that contains register values of temp_msb, temp_lsb, temp_xlsb (in
- * that order).
+ * @param[in] calib Pressure calibration values.
+ * @param[in] pres_raw Raw pressure value.
+ * @param[in] t_fine Fine resolution temperature value from @ref compensate_temp.
  *
- * @return int32_t Raw temperature value.
+ * @return uint32_t Pressure in Pa in Q24.8 format (24 integer bits and 8 fractional bits). Output value of "24674867"
+ * represents 24674867/256 = 96386.2 Pa = 963.862 hPa.
  */
-static int32_t temp_bytes_to_raw_temp_val(const uint8_t *const data)
+static uint32_t compensate_pres(const CalibPres *const calib, int32_t pres_raw, int32_t t_fine)
+{
+    int64_t var1, var2, p;
+    var1 = ((int64_t)t_fine) - 128000;
+    var2 = var1 * var1 * (int64_t)calib->dig_P6;
+    var2 = var2 + ((var1 * (int64_t)calib->dig_P5) << 17);
+    var2 = var2 + (((int64_t)calib->dig_P4) << 35);
+    var1 = ((var1 * var1 * (int64_t)calib->dig_P3) >> 8) + ((var1 * (int64_t)calib->dig_P2) << 12);
+    var1 = (((((int64_t)1) << 47) + var1)) * ((int64_t)calib->dig_P1) >> 33;
+    if (var1 == 0) {
+        return 0; // avoid exception caused by division by zero
+    }
+    p = 1048576 - pres_raw;
+    p = (((p << 31) - var2) * 3125) / var1;
+    var1 = (((int64_t)calib->dig_P9) * (p >> 13) * (p >> 13)) >> 25;
+    var2 = (((int64_t)calib->dig_P8) * p) >> 19;
+    p = ((p + var1 + var2) >> 8) + (((int64_t)calib->dig_P7) << 4);
+    return (uint32_t)p;
+}
+
+/**
+ * @brief Convert temperature/pressure bytes from BMP280 registers to raw value.
+ *
+ * @param[in] data Must point to a buffer of 3 bytes that contains register values of temp/press_msb, temp/press_lsb,
+ * temp/press_xlsb (in that order).
+ *
+ * @return int32_t Raw value.
+ */
+static int32_t temp_pres_bytes_to_raw_val(const uint8_t *const data)
 {
     uint32_t t = (((uint32_t)data[0]) << 12) | (((uint32_t)data[1]) << 4) | (((uint32_t)(data[2] & 0xF0)) >> 4);
     return (int32_t)t;
@@ -213,25 +265,44 @@ static void read_meas_forced_mode_part_5(uint8_t io_rc, void *user_data)
         return;
     }
 
-    size_t temp_start_idx = 0;
+    bool calculate_pres;
     if (self->meas_type == BMP280_MEAS_TYPE_ONLY_TEMP) {
-        temp_start_idx = 0;
+        calculate_pres = false;
     } else if (self->meas_type == BMP280_MEAS_TYPE_TEMP_AND_PRES) {
-        temp_start_idx = 3;
+        calculate_pres = true;
     } else {
         /* Invalid meas type */
         execute_complete_cb(self, BMP280_RESULT_CODE_DRIVER_ERR);
         return;
     }
-    int32_t temp_raw = temp_bytes_to_raw_temp_val(&self->read_buf[temp_start_idx]);
 
+    /* If we also read out pressure, then the first three bytes in read_buf are pressure register values */
+    size_t temp_start_idx = calculate_pres ? 3 : 0;
+    int32_t temp_raw = temp_pres_bytes_to_raw_val(&self->read_buf[temp_start_idx]);
     CalibTemp calib_temp = {
         .dig_T1 = 27504,
         .dig_T2 = 26435,
         .dig_T3 = -1000,
     };
-    (self->meas)->temperature = compensate_temp(&calib_temp, temp_raw);
-    (self->meas)->pressure = 25767236;
+    int32_t t_fine;
+    (self->meas)->temperature = compensate_temp(&calib_temp, temp_raw, &t_fine);
+
+    if (calculate_pres) {
+        /* Pressure reg values always start at index 0 of read_buf */
+        int32_t pres_raw = temp_pres_bytes_to_raw_val(self->read_buf);
+        CalibPres calib_pres = {
+            .dig_P1 = 36477,
+            .dig_P2 = -10685,
+            .dig_P3 = 3024,
+            .dig_P4 = 2855,
+            .dig_P5 = 140,
+            .dig_P6 = -7,
+            .dig_P7 = 15500,
+            .dig_P8 = -14600,
+            .dig_P9 = 6000,
+        };
+        (self->meas)->pressure = compensate_pres(&calib_pres, pres_raw, t_fine);
+    }
     execute_complete_cb(self, BMP280_RESULT_CODE_OK);
 }
 

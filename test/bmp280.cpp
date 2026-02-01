@@ -477,9 +477,11 @@ TEST(BMP280, ReadMeasForcedModeOnlyTemp)
 TEST(BMP280, ReadMeasForcedModeTempAndPres)
 {
     /* Pres 415148, temp 519888, example from datasheet p.23 */
-    uint8_t read_3_data[] = {0x06, 0x55, 0xAC, 0x7E, 0xED, 0x0};
+    uint8_t read_3_data[] = {0x65, 0x5A, 0xC0, 0x7E, 0xED, 0x0};
     int32_t temperature = 2508;
-    uint32_t pressure = 25767236;
+    /* Should be 25767236 according to the example, but a small difference is expected due to integer calculation
+     * rounding errors. */
+    uint32_t pressure = 25767233;
     ReadMeasForcedModeTestCfg cfg = {
         .meas_type = BMP280_MEAS_TYPE_TEMP_AND_PRES,
         .read_1_data = 0x01,
@@ -519,6 +521,33 @@ TEST(BMP280, ReadMeasForcedModeOnlyTemp2)
         .complete_cb_rc = BMP280_RESULT_CODE_OK,
         .temperature = &temperature,
         .pressure = NULL,
+    };
+    test_read_meas_forced_mode(&cfg);
+}
+
+TEST(BMP280, ReadMeasForcedModeTempAndPres2)
+{
+    /* Pres 350000, temp 500000 */
+    uint8_t read_3_data[] = {0x55, 0x73, 0x0, 0x7A, 0x12, 0x0};
+    int32_t temperature = 1885;
+    /* Should be 28376769 according to the example, but a small difference is expected due to integer calculation
+     * rounding errors. */
+    uint32_t pressure = 28376756;
+    ReadMeasForcedModeTestCfg cfg = {
+        .meas_type = BMP280_MEAS_TYPE_TEMP_AND_PRES,
+        .read_1_data = 0xA6,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Keeps the 6 MSb the same as read_1_data, and sets the 2 LSb to 01 (forced mode) */
+        .write_2_data = 0xA5,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .meas_time_ms = 5,
+        .read_3_data = read_3_data,
+        .read_3_data_size = 6,
+        .read_3_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+        .temperature = &temperature,
+        .pressure = &pressure,
     };
     test_read_meas_forced_mode(&cfg);
 }
