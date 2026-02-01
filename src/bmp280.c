@@ -46,6 +46,35 @@ static bool is_valid_cfg(const BMP280InitCfg *const cfg)
 }
 
 /**
+ * @brief Read chip ID from the chip ID regsiter.
+ *
+ * @pre @p self has been validated to not be NULL.
+ *
+ * @param[in] self BMP280 instance.
+ * @param[out] chip_id Chip id is written to this parameter.
+ * @param[in] cb Callback to execute once IO transaction to read chip id is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ */
+static void read_chip_id(BMP280 self, uint8_t *const chip_id, BMP280_IOCompleteCb cb, void *user_data)
+{
+    self->read_regs(BMP280_CHIP_ID_REG_ADDR, 1, chip_id, self->read_regs_user_data, cb, user_data);
+}
+
+/**
+ * @brief Send reset command to BMP280.
+ *
+ * @pre @p self has been validated to not be NULL.
+ *
+ * @param[in] self BMP280 instance.
+ * @param[in] cb Callback to execute once IO transaction to write the reset register is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ */
+static void send_reset_cmd(BMP280 self, BMP280_IOCompleteCb cb, void *user_data)
+{
+    self->write_reg(BMP280_RESET_REG_ADDR, BMP280_RESET_REG_VALUE, self->write_reg_user_data, cb, user_data);
+}
+
+/**
  * @brief Read ctrl_meas_register.
  *
  * @param[in] self BMP280 instance.
@@ -180,35 +209,6 @@ static void read_meas_forced_mode_part_2(uint8_t io_rc, void *user_data)
     write_val = write_val | (uint8_t)BMP280_BIT_MSK_POWER_MODE_FORCED;
 
     write_ctrl_meas_reg(self, write_val, read_meas_forced_mode_part_3, (void *)self);
-}
-
-/**
- * @brief Read chip ID from the chip ID regsiter.
- *
- * @pre @p self has been validated to not be NULL.
- *
- * @param[in] self BMP280 instance.
- * @param[out] chip_id Chip id is written to this parameter.
- * @param[in] cb Callback to execute once IO transaction to read chip id is complete.
- * @param[in] user_data User data to pass to @p cb.
- */
-static void read_chip_id(BMP280 self, uint8_t *const chip_id, BMP280_IOCompleteCb cb, void *user_data)
-{
-    self->read_regs(BMP280_CHIP_ID_REG_ADDR, 1, chip_id, self->read_regs_user_data, cb, user_data);
-}
-
-/**
- * @brief Send reset command to BMP280.
- *
- * @pre @p self has been validated to not be NULL.
- *
- * @param[in] self BMP280 instance.
- * @param[in] cb Callback to execute once IO transaction to write the reset register is complete.
- * @param[in] user_data User data to pass to @p cb.
- */
-static void send_reset_cmd(BMP280 self, BMP280_IOCompleteCb cb, void *user_data)
-{
-    self->write_reg(BMP280_RESET_REG_ADDR, BMP280_RESET_REG_VALUE, self->write_reg_user_data, cb, user_data);
 }
 
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
