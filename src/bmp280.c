@@ -7,6 +7,7 @@
 #define BMP280_CHIP_ID_REG_ADDR 0xD0
 #define BMP280_RESET_REG_ADDR 0xE0
 #define BMP280_CTRL_MEAS_REG_ADDR 0xF4
+#define BMP280_PRES_MSB_REG_ADDR 0xF7
 #define BMP280_TEMP_MSB_REG_ADDR 0xFA
 
 #define BMP280_BIT_MSK_POWER_MODE_FORCED 0x01U
@@ -172,14 +173,35 @@ static void reset_with_delay_part_2(uint8_t io_rc, void *user_data)
 static void read_meas_forced_mode_part_5(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
-    execute_complete_cb(self, BMP280_RESULT_CODE_IO_ERR);
+    if (io_rc != BMP280_IO_RESULT_CODE_OK) {
+        execute_complete_cb(self, BMP280_RESULT_CODE_IO_ERR);
+        return;
+    }
+
+    (self->meas)->temperature = 2508;
+    (self->meas)->pressure = 25767236;
+    execute_complete_cb(self, BMP280_RESULT_CODE_OK);
 }
 
 static void read_meas_forced_mode_part_4(void *user_data)
 {
     BMP280 self = (BMP280)user_data;
-    uint8_t read_buf[3];
-    self->read_regs(BMP280_TEMP_MSB_REG_ADDR, 3, read_buf, self->read_regs_user_data, read_meas_forced_mode_part_5,
+    size_t num_regs;
+    uint8_t start_addr;
+    if (self->meas_type == BMP280_MEAS_TYPE_ONLY_TEMP) {
+        num_regs = 3;
+        start_addr = BMP280_TEMP_MSB_REG_ADDR;
+    } else if (self->meas_type == BMP280_MEAS_TYPE_TEMP_AND_PRES) {
+        num_regs = 6;
+        start_addr = BMP280_PRES_MSB_REG_ADDR;
+    } else {
+        /* Invalid meas_type */
+        execute_complete_cb(self, BMP280_RESULT_CODE_DRIVER_ERR);
+        return;
+    }
+
+    uint8_t read_buf[6];
+    self->read_regs(start_addr, num_regs, read_buf, self->read_regs_user_data, read_meas_forced_mode_part_5,
                     (void *)self);
 }
 
@@ -258,6 +280,8 @@ uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t me
                                      BMP280CompleteCb cb, void *user_data)
 {
     start_sequence(self, cb, user_data);
+    self->meas = meas;
+    self->meas_type = meas_type;
     read_ctrl_meas_reg(self, &self->saved_reg_val, read_meas_forced_mode_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }

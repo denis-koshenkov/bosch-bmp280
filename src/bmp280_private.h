@@ -32,6 +32,10 @@ struct BMP280Struct {
     BMP280CompleteCb complete_cb;
     /** User data to pass to complete_cb. */
     void *complete_cb_user_data;
+    /** Address to write the resulting measurements to. */
+    BMP280Meas *meas;
+    /** Measurement type of the current sequence. One of @ref BMP280MeasType. */
+    uint8_t meas_type;
     /** Buffer to store a register value that was read out from the device.
      *  - bmp280_read_meas_forced_mode uses this buffer to store the ctrl_meas reg value after reading it, so that when
      * ctrl_meas reg is written to set forced mode, the bits not related to mode stay the same.
