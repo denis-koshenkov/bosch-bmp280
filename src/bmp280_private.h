@@ -11,8 +11,27 @@ extern "C"
  * otherwise they would know about the BMP280Struct struct definition and can manipulate private data of a BMP280
  * instance directly. */
 
-/** Must be equal to the maximum number of registers that can be read in a single call to read_regs. */
-#define BMP280_READ_BUF_SIZE 6
+/** Must be equal to the maximum number of registers that can be read in a single call to read_regs. 24 because
+ * calibration values occupy 24 registers, and they are read out in one transaction. */
+#define BMP280_READ_BUF_SIZE 24
+
+typedef struct {
+    uint16_t dig_T1;
+    int16_t dig_T2;
+    int16_t dig_T3;
+} CalibTemp;
+
+typedef struct {
+    uint16_t dig_P1;
+    int16_t dig_P2;
+    int16_t dig_P3;
+    int16_t dig_P4;
+    int16_t dig_P5;
+    int16_t dig_P6;
+    int16_t dig_P7;
+    int16_t dig_P8;
+    int16_t dig_P9;
+} CalibPres;
 
 /* Defined in a separate header, so that both bmp280.c and the user module implementing BMP280GetInstBuf callback
  * can include this header. The user module needs to know sizeof(struct BMP280Struct), so that it knows the size of
@@ -46,6 +65,10 @@ struct BMP280Struct {
     uint8_t saved_reg_val;
     /** Buffer to use for read reg operations. */
     uint8_t read_buf[BMP280_READ_BUF_SIZE];
+    /** Temperature calibration values. Used for converting raw temperature values to DegC. */
+    CalibTemp calib_temp;
+    /** Pressure calibration values. Used for converting raw pressure values to Pa. */
+    CalibPres calib_pres;
 };
 
 #ifdef __cplusplus

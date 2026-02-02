@@ -4,6 +4,7 @@
 #include "bmp280.h"
 #include "bmp280_private.h"
 
+#define BMP280_CALIB_DATA_START_REG_ADDR 0x88
 #define BMP280_CHIP_ID_REG_ADDR 0xD0
 #define BMP280_RESET_REG_ADDR 0xE0
 #define BMP280_CTRL_MEAS_REG_ADDR 0xF4
@@ -24,24 +25,6 @@ typedef enum {
     BMP280_POWER_MODE_FORCED,
     BMP280_POWER_MODE_NORMAL,
 } BMP280PowerMode;
-
-typedef struct {
-    uint16_t dig_T1;
-    int16_t dig_T2;
-    int16_t dig_T3;
-} CalibTemp;
-
-typedef struct {
-    uint16_t dig_P1;
-    int16_t dig_P2;
-    int16_t dig_P3;
-    int16_t dig_P4;
-    int16_t dig_P5;
-    int16_t dig_P6;
-    int16_t dig_P7;
-    int16_t dig_P8;
-    int16_t dig_P9;
-} CalibPres;
 
 /**
  * @brief Check if init config is valid.
@@ -117,6 +100,19 @@ static void read_ctrl_meas_reg(BMP280 self, uint8_t *const val, BMP280_IOComplet
 static void write_ctrl_meas_reg(BMP280 self, uint8_t val, BMP280_IOCompleteCb cb, void *user_data)
 {
     self->write_reg(BMP280_CTRL_MEAS_REG_ADDR, val, self->write_reg_user_data, cb, user_data);
+}
+
+/**
+ * @brief Read calibration data.
+ *
+ * @param[in] self BMP280 instance.
+ * @param[out] calib_vals Must be a buffer of 24 bytes. Calibration register values are written to this parameter.
+ * @param[in] cb Callback to execute once IO transaction to read the register is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ */
+static void read_calib_data(BMP280 self, uint8_t *const calib_vals, BMP280_IOCompleteCb cb, void *user_data)
+{
+    self->read_regs(BMP280_CALIB_DATA_START_REG_ADDR, 24, calib_vals, self->read_regs_user_data, cb, user_data);
 }
 
 /**
@@ -221,6 +217,64 @@ static int32_t temp_pres_bytes_to_raw_val(const uint8_t *const data)
     return (int32_t)t;
 }
 
+/**
+ * @brief Interpret two bytes in little endian as an unsigned 16-bit integer.
+ *
+ * @param[in] bytes Must point to two bytes. bytes[0] is the LSB, bytes[1] is the MSB.
+ *
+ * @return uint16_t Resulting unsigned 16-bit integer.
+ */
+uint16_t two_little_endian_bytes_to_uint16(const uint8_t *const bytes)
+{
+    return (((uint16_t)bytes[1]) << 8) | ((uint16_t)bytes[0]);
+}
+
+/**
+ * @brief Interpret two bytes in little endian as a signed 16-bit integer.
+ *
+ * @param[in] bytes Must point to two bytes. bytes[0] is the LSB, bytes[1] is the MSB.
+ *
+ * @return int16_t Resulting signed 16-bit integer.
+ */
+int16_t two_little_endian_bytes_to_int16(const uint8_t *const bytes)
+{
+    uint16_t unsigned_val = (((uint16_t)bytes[1]) << 8) | ((uint16_t)bytes[0]);
+    int16_t *signed_val_p = (int16_t *)&unsigned_val;
+    return *signed_val_p;
+}
+
+/**
+ * @brief Convert temperature calibration register values to calibration values.
+ *
+ * @param[in] data Must point to 6 bytes that contain the contents of registers 0x88...0x8D.
+ * @param[out] calib_temp Temperature calibration values are written to this parameter.
+ */
+static void convert_temp_calib_reg_vals_to_calib_values(const uint8_t *const data, CalibTemp *const calib_temp)
+{
+    calib_temp->dig_T1 = two_little_endian_bytes_to_uint16(&data[0]);
+    calib_temp->dig_T2 = two_little_endian_bytes_to_int16(&data[2]);
+    calib_temp->dig_T3 = two_little_endian_bytes_to_int16(&data[4]);
+}
+
+/**
+ * @brief Convert pressure calibration register values to calibration values.
+ *
+ * @param[in] data Must point to 18 bytes that contain the contents of registers 0x8E...0x9F.
+ * @param[out] calib_pres Pressure calibration values are written to this parameter.
+ */
+static void convert_pres_calib_reg_vals_to_calib_values(const uint8_t *const data, CalibPres *const calib_pres)
+{
+    calib_pres->dig_P1 = two_little_endian_bytes_to_uint16(&data[0]);
+    calib_pres->dig_P2 = two_little_endian_bytes_to_int16(&data[2]);
+    calib_pres->dig_P3 = two_little_endian_bytes_to_int16(&data[4]);
+    calib_pres->dig_P4 = two_little_endian_bytes_to_int16(&data[6]);
+    calib_pres->dig_P5 = two_little_endian_bytes_to_int16(&data[8]);
+    calib_pres->dig_P6 = two_little_endian_bytes_to_int16(&data[10]);
+    calib_pres->dig_P7 = two_little_endian_bytes_to_int16(&data[12]);
+    calib_pres->dig_P8 = two_little_endian_bytes_to_int16(&data[14]);
+    calib_pres->dig_P9 = two_little_endian_bytes_to_int16(&data[16]);
+}
+
 static void generic_io_complete_cb(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
@@ -279,29 +333,13 @@ static void read_meas_forced_mode_part_5(uint8_t io_rc, void *user_data)
     /* If we also read out pressure, then the first three bytes in read_buf are pressure register values */
     size_t temp_start_idx = calculate_pres ? 3 : 0;
     int32_t temp_raw = temp_pres_bytes_to_raw_val(&self->read_buf[temp_start_idx]);
-    CalibTemp calib_temp = {
-        .dig_T1 = 27504,
-        .dig_T2 = 26435,
-        .dig_T3 = -1000,
-    };
     int32_t t_fine;
-    (self->meas)->temperature = compensate_temp(&calib_temp, temp_raw, &t_fine);
+    (self->meas)->temperature = compensate_temp(&self->calib_temp, temp_raw, &t_fine);
 
     if (calculate_pres) {
         /* Pressure reg values always start at index 0 of read_buf */
         int32_t pres_raw = temp_pres_bytes_to_raw_val(self->read_buf);
-        CalibPres calib_pres = {
-            .dig_P1 = 36477,
-            .dig_P2 = -10685,
-            .dig_P3 = 3024,
-            .dig_P4 = 2855,
-            .dig_P5 = 140,
-            .dig_P6 = -7,
-            .dig_P7 = 15500,
-            .dig_P8 = -14600,
-            .dig_P9 = 6000,
-        };
-        (self->meas)->pressure = compensate_pres(&calib_pres, pres_raw, t_fine);
+        (self->meas)->pressure = compensate_pres(&self->calib_pres, pres_raw, t_fine);
     }
     execute_complete_cb(self, BMP280_RESULT_CODE_OK);
 }
@@ -355,6 +393,22 @@ static void read_meas_forced_mode_part_2(uint8_t io_rc, void *user_data)
     write_ctrl_meas_reg(self, write_val, read_meas_forced_mode_part_3, (void *)self);
 }
 
+static void init_meas_part_2(uint8_t io_rc, void *user_data)
+{
+    BMP280 self = (BMP280)user_data;
+    if (io_rc != BMP280_IO_RESULT_CODE_OK) {
+        execute_complete_cb(self, BMP280_RESULT_CODE_IO_ERR);
+        return;
+    }
+
+    /* First 6 bytes are from temperature calibration registers */
+    convert_temp_calib_reg_vals_to_calib_values(&self->read_buf[0], &self->calib_temp);
+    /* Last 18 bytes are from pressure calibration registers */
+    convert_pres_calib_reg_vals_to_calib_values(&self->read_buf[6], &self->calib_pres);
+
+    execute_complete_cb(self, BMP280_RESULT_CODE_OK);
+}
+
 uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
 {
     if (!inst || !is_valid_cfg(cfg)) {
@@ -395,6 +449,17 @@ uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_dat
 
     start_sequence(self, cb, user_data);
     send_reset_cmd(self, reset_with_delay_part_2, (void *)self);
+    return BMP280_RESULT_CODE_OK;
+}
+
+uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data)
+{
+    if (!self) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
+    start_sequence(self, cb, user_data);
+    read_calib_data(self, self->read_buf, init_meas_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
 

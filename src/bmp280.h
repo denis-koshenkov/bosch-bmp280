@@ -150,6 +150,8 @@ uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb
  */
 uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_data);
 
+uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data);
+
 uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t meas_time_ms, BMP280Meas *const meas,
                                      BMP280CompleteCb cb, void *user_data);
 

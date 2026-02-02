@@ -10,6 +10,37 @@
 #include "mock_cfg_functions.h"
 #include "mock_complete_cb.h"
 
+/* Example calib values from the datasheet p. 23. */
+static uint8_t default_calib_data[24] = {
+    0x70, 0x6B, // dig_T1 = 27504
+    0x43, 0x67, // dig_T2 = 26435
+    0x18, 0xFC, // dig_T3 = -1000
+    0x7D, 0x8E, // dig_P1 = 36477
+    0x43, 0xD6, // dig_P2 = -10685
+    0xD0, 0x0B, // dig_P3 = 3024
+    0x27, 0x0B, // dig_P4 = 2855
+    0x8C, 0x00, // dig_P5 = 140
+    0xF9, 0xFF, // dig_P6 = -7
+    0x8C, 0x3C, // dig_P7 = 15500
+    0xF8, 0xC6, // dig_P8 = -14600
+    0x70, 0x17  // dig_P9 = 6000
+};
+
+static uint8_t alt_calib_data[24] = {
+    0x82, 0x6B, // dig_T1 = 27522
+    0x53, 0x67, // dig_T2 = 26451
+    0x18, 0xFB, // dig_T3 = -1256
+    0x7F, 0x8E, // dig_P1 = 36479
+    0x43, 0xD6, // dig_P2 = -10685
+    0xD0, 0x0B, // dig_P3 = 3024
+    0x27, 0x0B, // dig_P4 = 2855
+    0x9C, 0x00, // dig_P5 = 156
+    0xF9, 0xFF, // dig_P6 = -7
+    0x80, 0x3C, // dig_P7 = 15488
+    0xF8, 0xC6, // dig_P8 = -14600
+    0x70, 0x17  // dig_P9 = 6000
+};
+
 /* To return from mock_bmp280_get_inst_buf */
 static struct BMP280Struct inst_buf;
 
@@ -237,6 +268,8 @@ TEST(BMP280, ResetWithDelaySelfNull)
 }
 
 typedef struct {
+    /** Must point to 24 bytes that simulate calibration data to be read out from registers 0x88...0x9F. */
+    const uint8_t *const calib_data;
     /** Measurement type to pass to bmp280_read_meas_forced_mode. Must be one of @ref BMP280MeasType. */
     uint8_t meas_type;
     /** Data to return from first read regs that reads the ctrl_meas register. */
@@ -271,9 +304,38 @@ typedef struct {
     uint32_t *pressure;
 } ReadMeasForcedModeTestCfg;
 
+static void call_init_meas(const uint8_t *const calib_data)
+{
+    void *complete_cb_user_data = (void *)0xA3;
+    /* Called from bmp280_init_meas */
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0x88)
+        .withParameter("num_regs", 24)
+        .withOutputParameterReturning("data", calib_data, 24)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    /* Called from read_regs_complete_cb */
+    mock()
+        .expectOneCall("mock_bmp280_complete_cb")
+        .withParameter("rc", BMP280_RESULT_CODE_OK)
+        .withParameter("user_data", complete_cb_user_data);
+
+    uint8_t rc_init_meas = bmp280_init_meas(bmp280, mock_bmp280_complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_init_meas);
+
+    read_regs_complete_cb(BMP280_IO_RESULT_CODE_OK, read_regs_complete_cb_user_data);
+}
+
 static void test_read_meas_forced_mode(const ReadMeasForcedModeTestCfg *const cfg)
 {
     void *complete_cb_user_data = (void *)0xA2;
+
+    /* Calling these before recording mock expectations so that the order of mock calls is preserved */
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(cfg->calib_data);
+
     /* Called from bmp280_read_meas_forced_mode */
     mock()
         .expectOneCall("mock_bmp280_read_regs")
@@ -323,9 +385,6 @@ static void test_read_meas_forced_mode(const ReadMeasForcedModeTestCfg *const cf
             .withParameter("user_data", complete_cb_user_data);
     }
 
-    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
-    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
-
     BMP280Meas meas;
     uint8_t rc = bmp280_read_meas_forced_mode(bmp280, cfg->meas_type, cfg->meas_time_ms, &meas, cfg->complete_cb,
                                               complete_cb_user_data);
@@ -350,6 +409,7 @@ static void test_read_meas_forced_mode(const ReadMeasForcedModeTestCfg *const cf
 TEST(BMP280, ReadMeasForcedModeRead1Fail)
 {
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         /* Does not matter */
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
         /* Does not matter, this read fails */
@@ -378,6 +438,7 @@ TEST(BMP280, ReadMeasForcedModeRead1Fail)
 TEST(BMP280, ReadMeasForcedModeWrite2Fail)
 {
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         /* Does not matter */
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
         .read_1_data = 0x0,
@@ -404,6 +465,7 @@ TEST(BMP280, ReadMeasForcedModeWrite2Fail)
 TEST(BMP280, ReadMeasForcedModeWrite2UsesRead1Val)
 {
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         /* Does not matter */
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
         .read_1_data = 0xFF,
@@ -432,6 +494,7 @@ TEST(BMP280, ReadMeasForcedModeRead3Fail)
     /* Does not matter, read 3 fails */
     uint8_t read_3_data[] = {0x80, 0x0, 0x0};
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
         .read_1_data = 0x1F,
         .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
@@ -456,6 +519,7 @@ TEST(BMP280, ReadMeasForcedModeOnlyTemp)
     uint8_t read_3_data[] = {0x7E, 0xED, 0x0};
     int32_t temperature = 2508;
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
         .read_1_data = 0x03,
         .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
@@ -483,6 +547,7 @@ TEST(BMP280, ReadMeasForcedModeTempAndPres)
      * rounding errors. */
     uint32_t pressure = 25767233;
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         .meas_type = BMP280_MEAS_TYPE_TEMP_AND_PRES,
         .read_1_data = 0x01,
         .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
@@ -507,6 +572,7 @@ TEST(BMP280, ReadMeasForcedModeOnlyTemp2)
     uint8_t read_3_data[] = {0x7A, 0x12, 0x0};
     int32_t temperature = 1885;
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         .meas_type = BMP280_MEAS_TYPE_ONLY_TEMP,
         .read_1_data = 0x30,
         .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
@@ -534,6 +600,7 @@ TEST(BMP280, ReadMeasForcedModeTempAndPres2)
      * rounding errors. */
     uint32_t pressure = 28376756;
     ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
         .meas_type = BMP280_MEAS_TYPE_TEMP_AND_PRES,
         .read_1_data = 0xA6,
         .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
@@ -550,4 +617,97 @@ TEST(BMP280, ReadMeasForcedModeTempAndPres2)
         .pressure = &pressure,
     };
     test_read_meas_forced_mode(&cfg);
+}
+
+TEST(BMP280, ReadMeasForcedModeTempAndPresAltCalib)
+{
+    /* Pres 415148, temp 519888, example from datasheet p.23 */
+    uint8_t read_3_data[] = {0x65, 0x5A, 0xC0, 0x7E, 0xED, 0x0};
+    /* These results are taken from the code calculation result, we did not perform the calculation with alternative
+     * calibraiton values ourselves. */
+    int32_t temperature = 2499;
+    uint32_t pressure = 25761933;
+    ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = alt_calib_data,
+        .meas_type = BMP280_MEAS_TYPE_TEMP_AND_PRES,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Keeps the 6 MSb the same as read_1_data, and sets the 2 LSb to 01 (forced mode) */
+        .write_2_data = 0x81,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .meas_time_ms = 5,
+        .read_3_data = read_3_data,
+        .read_3_data_size = 6,
+        .read_3_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+        .temperature = &temperature,
+        .pressure = &pressure,
+    };
+    test_read_meas_forced_mode(&cfg);
+}
+
+static void test_init_meas(uint8_t complete_cb_rc, const uint8_t *const calib_data, uint8_t read_io_rc,
+                           BMP280CompleteCb complete_cb)
+{
+    void *complete_cb_user_data = (void *)0xA4;
+    /* Called from bmp280_init_meas */
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0x88)
+        .withParameter("num_regs", 24)
+        .withOutputParameterReturning("data", calib_data, 24)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    if (complete_cb) {
+        /* Called either from read_regs_complete_cb */
+        mock()
+            .expectOneCall("mock_bmp280_complete_cb")
+            .withParameter("rc", complete_cb_rc)
+            .withParameter("user_data", complete_cb_user_data);
+    }
+
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_init_meas(bmp280, complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    read_regs_complete_cb(read_io_rc, read_regs_complete_cb_user_data);
+}
+
+TEST(BMP280, InitMeasReadFail)
+{
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_IO_ERR;
+    uint8_t *calib_data = default_calib_data;
+    uint8_t read_io_rc = BMP280_IO_RESULT_CODE_ERR;
+    BMP280CompleteCb complete_cb = mock_bmp280_complete_cb;
+    test_init_meas(complete_cb_rc, calib_data, read_io_rc, complete_cb);
+}
+
+TEST(BMP280, InitMeasReadSuccess)
+{
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_OK;
+    uint8_t *calib_data = default_calib_data;
+    uint8_t read_io_rc = BMP280_IO_RESULT_CODE_OK;
+    BMP280CompleteCb complete_cb = mock_bmp280_complete_cb;
+    test_init_meas(complete_cb_rc, calib_data, read_io_rc, complete_cb);
+}
+
+TEST(BMP280, InitMeasCompleteCbNull)
+{
+    uint8_t complete_cb_rc = BMP280_RESULT_CODE_OK;
+    uint8_t *calib_data = default_calib_data;
+    uint8_t read_io_rc = BMP280_IO_RESULT_CODE_OK;
+    BMP280CompleteCb complete_cb = NULL;
+    test_init_meas(complete_cb_rc, calib_data, read_io_rc, complete_cb);
+}
+
+TEST(BMP280, InitMeasSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_init_meas(NULL, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
