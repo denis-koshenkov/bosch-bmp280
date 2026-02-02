@@ -66,6 +66,8 @@ struct BMP280Struct {
     CalibTemp calib_temp;
     /** Pressure calibration values. Used for converting raw pressure values to Pa. */
     CalibPres calib_pres;
+    /** Whether bmp280_init_meas has been called. */
+    bool is_meas_init;
 };
 
 #ifdef __cplusplus

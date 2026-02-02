@@ -727,6 +727,50 @@ TEST(BMP280, ReadMeasForcedModeInvalidMeasType)
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
 
+TEST(BMP280, ReadMeasForcedModeCalledBeforeInitMeas)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    BMP280Meas meas;
+    uint32_t meas_time_ms = 20;
+    uint8_t rc = bmp280_read_meas_forced_mode(bmp280, BMP280_MEAS_TYPE_ONLY_TEMP, meas_time_ms, &meas,
+                                              mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_USAGE, rc);
+}
+
+TEST(BMP280, ReadMeasForcedModeCalledAfterInitMeasFailed)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    void *complete_cb_user_data = (void *)0xA6;
+    /* Called from bmp280_init_meas */
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0x88)
+        .withParameter("num_regs", 24)
+        .withOutputParameterReturning("data", default_calib_data, 24)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    /* Called from read_regs_complete_cb */
+    mock()
+        .expectOneCall("mock_bmp280_complete_cb")
+        .withParameter("rc", BMP280_RESULT_CODE_IO_ERR)
+        .withParameter("user_data", complete_cb_user_data);
+
+    uint8_t rc_init_meas = bmp280_init_meas(bmp280, mock_bmp280_complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_init_meas);
+    /* Fail read of calibration values */
+    read_regs_complete_cb(BMP280_IO_RESULT_CODE_ERR, read_regs_complete_cb_user_data);
+
+    BMP280Meas meas;
+    uint32_t meas_time_ms = 20;
+    uint8_t rc = bmp280_read_meas_forced_mode(bmp280, BMP280_MEAS_TYPE_TEMP_AND_PRES, meas_time_ms, &meas,
+                                              mock_bmp280_complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_USAGE, rc);
+}
+
 static void test_init_meas(uint8_t complete_cb_rc, const uint8_t *const calib_data, uint8_t read_io_rc,
                            BMP280CompleteCb complete_cb)
 {

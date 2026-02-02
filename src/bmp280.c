@@ -419,6 +419,7 @@ static void init_meas_part_2(uint8_t io_rc, void *user_data)
     /* Last 18 bytes are from pressure calibration registers */
     convert_pres_calib_reg_vals_to_calib_values(&self->read_buf[6], &self->calib_pres);
 
+    self->is_meas_init = true;
     execute_complete_cb(self, BMP280_RESULT_CODE_OK);
 }
 
@@ -439,6 +440,7 @@ uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
     (*inst)->write_reg_user_data = cfg->write_reg_user_data;
     (*inst)->start_timer = cfg->start_timer;
     (*inst)->start_timer_user_data = cfg->start_timer_user_data;
+    (*inst)->is_meas_init = false;
 
     return BMP280_RESULT_CODE_OK;
 }
@@ -481,6 +483,9 @@ uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t me
 {
     if (!self || !meas || (meas_time_ms == 0) || !is_valid_meas_type(meas_type)) {
         return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+    if (!self->is_meas_init) {
+        return BMP280_RESULT_CODE_INVAL_USAGE;
     }
 
     start_sequence(self, cb, user_data);

@@ -60,6 +60,7 @@ typedef enum {
     BMP280_RESULT_CODE_IO_ERR,
     /** Something went wrong in the code of this driver. */
     BMP280_RESULT_CODE_DRIVER_ERR,
+    BMP280_RESULT_CODE_INVAL_USAGE,
 } BMP280ResultCode;
 
 /* There is no option to read out just pressure, because temperature value is needed to convert raw pressure values
