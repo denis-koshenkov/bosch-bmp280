@@ -675,6 +675,58 @@ TEST(BMP280, ReadMeasForcedModeTempAndPresMeasTime50)
     test_read_meas_forced_mode(&cfg);
 }
 
+TEST(BMP280, ReadMeasForcedModeSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(default_calib_data);
+
+    BMP280Meas meas;
+    uint32_t meas_time_ms = 5;
+    uint8_t rc = bmp280_read_meas_forced_mode(NULL, BMP280_MEAS_TYPE_TEMP_AND_PRES, meas_time_ms, &meas,
+                                              mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, ReadMeasForcedModeMeasNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(default_calib_data);
+
+    uint32_t meas_time_ms = 5;
+    uint8_t rc = bmp280_read_meas_forced_mode(bmp280, BMP280_MEAS_TYPE_TEMP_AND_PRES, meas_time_ms, NULL,
+                                              mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, ReadMeasForcedModeMeasTimeZero)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(default_calib_data);
+
+    BMP280Meas meas;
+    uint32_t meas_time_ms = 0;
+    uint8_t rc = bmp280_read_meas_forced_mode(bmp280, BMP280_MEAS_TYPE_TEMP_AND_PRES, meas_time_ms, &meas,
+                                              mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, ReadMeasForcedModeInvalidMeasType)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(default_calib_data);
+
+    uint8_t invalid_meas_type = 0x5A;
+    BMP280Meas meas;
+    uint32_t meas_time_ms = 10;
+    uint8_t rc =
+        bmp280_read_meas_forced_mode(bmp280, invalid_meas_type, meas_time_ms, &meas, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
 static void test_init_meas(uint8_t complete_cb_rc, const uint8_t *const calib_data, uint8_t read_io_rc,
                            BMP280CompleteCb complete_cb)
 {

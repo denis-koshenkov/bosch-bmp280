@@ -48,6 +48,19 @@ static bool is_valid_cfg(const BMP280InitCfg *const cfg)
 }
 
 /**
+ * @brief Check if measurement type is valid.
+ *
+ * @param meas_type Measurement type.
+ *
+ * @retval true Measurement type is valid.
+ * @retval false Measurement type is invalid.
+ */
+static bool is_valid_meas_type(uint8_t meas_type)
+{
+    return (meas_type == BMP280_MEAS_TYPE_ONLY_TEMP) || (meas_type == BMP280_MEAS_TYPE_TEMP_AND_PRES);
+}
+
+/**
  * @brief Read chip ID from the chip ID regsiter.
  *
  * @pre @p self has been validated to not be NULL.
@@ -466,6 +479,10 @@ uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data)
 uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t meas_time_ms, BMP280Meas *const meas,
                                      BMP280CompleteCb cb, void *user_data)
 {
+    if (!self || !meas || (meas_time_ms == 0) || !is_valid_meas_type(meas_type)) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
     start_sequence(self, cb, user_data);
     self->meas = meas;
     self->meas_type = meas_type;
