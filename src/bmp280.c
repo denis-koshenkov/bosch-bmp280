@@ -384,7 +384,7 @@ static void read_meas_forced_mode_part_2(uint8_t io_rc, void *user_data)
         return;
     }
 
-    uint8_t write_val = self->saved_reg_val;
+    uint8_t write_val = self->read_buf[0];
     /* Clear the two LSb of ctrl_meas register value */
     write_val = write_val & ~((uint8_t)0x3U);
     /* Set the two LSb of ctrl_meas register value to forced mode */
@@ -470,6 +470,6 @@ uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t me
     self->meas = meas;
     self->meas_type = meas_type;
     self->timer_period_ms = meas_time_ms;
-    read_ctrl_meas_reg(self, &self->saved_reg_val, read_meas_forced_mode_part_2, (void *)self);
+    read_ctrl_meas_reg(self, self->read_buf, read_meas_forced_mode_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
