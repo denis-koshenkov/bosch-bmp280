@@ -647,6 +647,34 @@ TEST(BMP280, ReadMeasForcedModeTempAndPresAltCalib)
     test_read_meas_forced_mode(&cfg);
 }
 
+TEST(BMP280, ReadMeasForcedModeTempAndPresMeasTime50)
+{
+    /* Pres 415148, temp 519888, example from datasheet p.23 */
+    uint8_t read_3_data[] = {0x65, 0x5A, 0xC0, 0x7E, 0xED, 0x0};
+    int32_t temperature = 2508;
+    /* Should be 25767236 according to the example, but a small difference is expected due to integer calculation
+     * rounding errors. */
+    uint32_t pressure = 25767233;
+    ReadMeasForcedModeTestCfg cfg = {
+        .calib_data = default_calib_data,
+        .meas_type = BMP280_MEAS_TYPE_TEMP_AND_PRES,
+        .read_1_data = 0x01,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Keeps the 6 MSb the same as read_1_data, and sets the 2 LSb to 01 (forced mode) */
+        .write_2_data = 0x01,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .meas_time_ms = 50,
+        .read_3_data = read_3_data,
+        .read_3_data_size = 6,
+        .read_3_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+        .temperature = &temperature,
+        .pressure = &pressure,
+    };
+    test_read_meas_forced_mode(&cfg);
+}
+
 static void test_init_meas(uint8_t complete_cb_rc, const uint8_t *const calib_data, uint8_t read_io_rc,
                            BMP280CompleteCb complete_cb)
 {

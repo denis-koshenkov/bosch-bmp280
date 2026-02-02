@@ -56,6 +56,8 @@ struct BMP280Struct {
     void *complete_cb_user_data;
     /** Address to write the resulting measurements to. */
     BMP280Meas *meas;
+    /** Timer period to use for read_meas_forced_mode. */
+    uint32_t timer_period_ms;
     /** Measurement type of the current sequence. One of @ref BMP280MeasType. */
     uint8_t meas_type;
     /** Buffer to store a register value that was read out from the device.

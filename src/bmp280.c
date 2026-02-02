@@ -373,7 +373,7 @@ static void read_meas_forced_mode_part_3(uint8_t io_rc, void *user_data)
         return;
     }
 
-    self->start_timer(5, self->start_timer_user_data, read_meas_forced_mode_part_4, (void *)self);
+    self->start_timer(self->timer_period_ms, self->start_timer_user_data, read_meas_forced_mode_part_4, (void *)self);
 }
 
 static void read_meas_forced_mode_part_2(uint8_t io_rc, void *user_data)
@@ -469,6 +469,7 @@ uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t me
     start_sequence(self, cb, user_data);
     self->meas = meas;
     self->meas_type = meas_type;
+    self->timer_period_ms = meas_time_ms;
     read_ctrl_meas_reg(self, &self->saved_reg_val, read_meas_forced_mode_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
