@@ -148,11 +148,78 @@ uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb
  * @param[in] user_data User data to pass to @p cb.
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated reset with delay sequence.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL.
  */
 uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_data);
 
+/**
+ * @brief Read out temperature and pressure calibration values from the device.
+ *
+ * This function must be called once per instance before any measurement readout functions are called, such as @ref
+ * bmp280_read_meas_forced_mode.
+ *
+ * This function reads out temperature and pressure calibration trimmings from BMP280 registers and saves them to RAM.
+ * These calibration values are then used to convert raw measurement register values into measurements in applicable
+ * units - DegC or Pa.
+ *
+ * Once calibration values are read out or an error occurrs, @p cb is executed. "rc" parameter of @p cb indicates
+ * success or reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully read out calibration values.
+ * - @ref BMP280_RESULT_CODE_IO_ERR IO transaction to read calibration values failed.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[in] cb Callback to execute once calibration values are read out.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated readout of calibration values.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL.
+ */
 uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data);
 
+/**
+ * @brief Perform one temperature and/or pressure measurement in forced mode.
+ *
+ * @pre @ref bmp280_init_meas has been called for this BMP280 instance.
+ *
+ * This function performs the following steps:
+ * 1. Set mode to forced mode in ctrl_meas register.
+ * 2. Wait for @p meas_time_ms ms.
+ * 3. Read temperature and/or pressure measurement from the registers and convert them to DegC/Pa units.
+ *
+ * If @p meas_type is BMP280_MEAS_TYPE_ONLY_TEMP, only temperature measurement is read out (3 registers). In this case,
+ * "pressure" field of @p meas has undefined value and should not be used.
+ *
+ * If @p meas_type is BMP280_MEAS_TYPE_TEMP_AND_PRES, both temperature and pressure measurements are read out (6
+ * registers). Both "temperature" and "pressure" fields of @p meas are then valid.
+ *
+ * The choice of @p meas_time_ms depends on the oversampling settings set in ctrl_meas register. The datasheet (p. 18)
+ * provides measurement times for different oversampling settings. The maximum measurement time for a given set of
+ * settings is a good choice for @p meas_time_ms parameter.
+ *
+ * The datasheet does not provide measurement times for all possible combinations of oversampling settings. Because of
+ * this, the choice of @p meas_time_ms is left to the user of the driver.
+ *
+ * Once measurement is complete or an error occurrs, @p cb is executed. "rc" parameter of @p cb indicates
+ * success or reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully completed the measurement.
+ * - @ref BMP280_RESULT_CODE_IO_ERR One of the IO transactions failed.
+ * - @ref BMP280_RESULT_CODE_DRIVER_ERR Something went wrong in the code of this driver.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[in] meas_type Measurement type - whether to read out only temperature, or both temperature and pressure. Must
+ * be one of @ref BMP280MeasType.
+ * @param[in] meas_time_ms Number of milliseconds to wait between setting forced mode and reading temperature/pressure
+ * registers. Cannot be 0.
+ * @param[out] meas Measurement result is written to this parameter. "pressure" field is only valid if @p meas_type is
+ * BMP280_MEAS_TYPE_TEMP_AND_PRES. Cannot be NULL.
+ * @param[in] cb Callback to execute once measurement is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated the measurement.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, @p meas is NULL, @p meas_type is not one of @ref
+ * BMP280MeasType, or @p meas_time is 0.
+ * @retval BMP280_RESULT_CODE_INVAL_USAGE @ref bmp280_init_meas has not been called for this BMP280 instance.
+ */
 uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t meas_time_ms, BMP280Meas *const meas,
                                      BMP280CompleteCb cb, void *user_data);
 
