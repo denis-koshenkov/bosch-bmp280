@@ -835,3 +835,233 @@ TEST(BMP280, InitMeasSelfNull)
     uint8_t rc = bmp280_init_meas(NULL, mock_bmp280_complete_cb, NULL);
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
+
+typedef struct {
+    /** Oversampling option to pass to bmp280_set_temp_oversampling. Must be one of @ref BMP280Oversampling. */
+    uint8_t oversampling;
+    /** Data to return from first read regs that reads the ctrl_meas register. */
+    uint8_t read_1_data;
+    /** IO result code of first read regs that reads the ctrl_meas register. */
+    uint8_t read_1_io_rc;
+    /** Data to write to ctrl_meas register. */
+    uint8_t write_2_data;
+    /** IO result code of write reg that writes the ctrl_meas register to set the oversampling option. */
+    uint8_t write_2_io_rc;
+    /** Complete cb to pass to bmp280_set_temp_oversampling. Two options: mock_bmp280_complete_cb or NULL. If it is
+     * mock_bmp280_complete_cb, then the test checks that that function is called with complete_cb_rc. */
+    BMP280CompleteCb complete_cb;
+    /** Result code to pass to complete_cb. If complete_cb is NULL, this value is not used in the test. */
+    uint8_t complete_cb_rc;
+} SetTempOversamplingTestCfg;
+
+static void test_set_temp_oversampling(const SetTempOversamplingTestCfg *const cfg)
+{
+    void *complete_cb_user_data = (void *)0xA8;
+    /* Called from bmp280_set_temp_oversamlping */
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF4)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &cfg->read_1_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    if (cfg->read_1_io_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Called from read_reg_complete_cb */
+        mock()
+            .expectOneCall("mock_bmp280_write_reg")
+            .withParameter("addr", 0xF4)
+            .withParameter("reg_val", cfg->write_2_data)
+            .withParameter("user_data", write_reg_user_data)
+            .ignoreOtherParameters();
+    }
+    if (cfg->complete_cb) {
+        mock()
+            .expectOneCall("mock_bmp280_complete_cb")
+            .withParameter("rc", cfg->complete_cb_rc)
+            .withParameter("user_data", complete_cb_user_data);
+    }
+
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    BMP280Meas meas;
+    uint8_t rc = bmp280_set_temp_oversampling(bmp280, cfg->oversampling, cfg->complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    read_regs_complete_cb(cfg->read_1_io_rc, read_regs_complete_cb_user_data);
+    if (cfg->read_1_io_rc == BMP280_IO_RESULT_CODE_OK) {
+        write_reg_complete_cb(cfg->write_2_io_rc, write_reg_complete_cb_user_data);
+    }
+}
+
+TEST(BMP280, SetTempOversamplingReadFail)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_4,
+        /* Does not matter, read fails */
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        /* Does not matter */
+        .write_2_data = 0x81,
+        /* Does not matter */
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_IO_ERR,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingWriteFail)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_4,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x60,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_IO_ERR,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversampling4)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_4,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x60,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversampling4AltReadData)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_4,
+        .read_1_data = 0x1C,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x7C,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversampling2)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_2,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 010 (oversampling x2), keep other bits the same */
+        .write_2_data = 0x40,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversampling1)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_1,
+        .read_1_data = 0xFF,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 001 (oversampling x1), keep other bits the same */
+        .write_2_data = 0x3F,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversampling8)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_8,
+        .read_1_data = 0x5A,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 100 (oversampling x8), keep other bits the same */
+        .write_2_data = 0x9A,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversampling16)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_16,
+        .read_1_data = 0x33,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 101 (oversampling x16), keep other bits the same */
+        .write_2_data = 0xB3,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingOversamplingSkipped)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_SKIPPED,
+        .read_1_data = 0x6A,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 000 (oversampling skipped), keep other bits the same */
+        .write_2_data = 0x0A,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamplingCbNull)
+{
+    SetTempOversamplingTestCfg cfg = {
+        .oversampling = BMP280_OVERSAMPLING_SKIPPED,
+        .read_1_data = 0x6A,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set 3 MSb to 000 (oversampling skipped), keep other bits the same */
+        .write_2_data = 0x0A,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = NULL,
+        /* Does not matter */
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_temp_oversampling(&cfg);
+}
+
+TEST(BMP280, SetTempOversamlpingSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_set_temp_oversampling(NULL, BMP280_OVERSAMPLING_1, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, SetTempOversamlpingInvalidOversampling)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t invalid_oversampling = 0x42;
+    uint8_t rc = bmp280_set_temp_oversampling(bmp280, invalid_oversampling, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}

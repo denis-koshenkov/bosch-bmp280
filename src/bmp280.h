@@ -73,6 +73,15 @@ typedef enum {
     BMP280_MEAS_TYPE_TEMP_AND_PRES,
 } BMP280MeasType;
 
+typedef enum {
+    BMP280_OVERSAMPLING_SKIPPED = 0,
+    BMP280_OVERSAMPLING_1 = 1,
+    BMP280_OVERSAMPLING_2 = 2,
+    BMP280_OVERSAMPLING_4 = 3,
+    BMP280_OVERSAMPLING_8 = 4,
+    BMP280_OVERSAMPLING_16 = 5,
+} BMP280Oversampling;
+
 typedef struct {
     /** Temperature in degrees Celsius, resolution is 0.01. Output value "5123" equals 51.23 degrees Celsius. */
     int32_t temperature;
@@ -222,6 +231,24 @@ uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data);
  */
 uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t meas_time_ms, BMP280Meas *const meas,
                                      BMP280CompleteCb cb, void *user_data);
+
+/**
+ * @brief Set temperature oversampling option.
+ *
+ * Once oversampling option is set or an error occurrs, @p cb is executed. "rc" parameter of @p cb indicates
+ * success or reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully set the oversampling option.
+ * - @ref BMP280_RESULT_CODE_IO_ERR One of the IO transactions failed.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[in] oversampling Oversampling option to set. One of @ref BMP280Oversampling.
+ * @param[in] cb Callback to execute once oversampling option is set.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the oversampling option.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p oversampling is not one of @ref BMP280Oversampling.
+ */
+uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
 }

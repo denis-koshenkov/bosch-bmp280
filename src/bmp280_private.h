@@ -60,6 +60,8 @@ struct BMP280Struct {
     uint32_t timer_period_ms;
     /** Measurement type of the current sequence. One of @ref BMP280MeasType. */
     uint8_t meas_type;
+    /** Oversampling option to use in set_temp_oversampling and set_pres_oversampling sequences. */
+    uint8_t oversamlping;
     /** Buffer to use for read reg operations. */
     uint8_t read_buf[BMP280_READ_BUF_SIZE];
     /** Temperature calibration values. Used for converting raw temperature values to DegC. */
