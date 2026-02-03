@@ -1091,3 +1091,184 @@ TEST(BMP280, SetTempOversamlpingInvalidOversampling)
     uint8_t rc = bmp280_set_temp_oversampling(bmp280, invalid_oversampling, mock_bmp280_complete_cb, NULL);
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
+
+TEST(BMP280, SetPresOversamplingReadFail)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_4,
+        /* Does not matter, read fails */
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        /* Does not matter */
+        .write_2_data = 0x81,
+        /* Does not matter */
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_IO_ERR,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingWriteFail)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_4,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x8C,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_IO_ERR,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversampling4)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_4,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x8C,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversampling4AltReadData)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_4,
+        .read_1_data = 0x1C,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x0C,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversampling2)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_2,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 010 (oversampling x2), keep other bits the same */
+        .write_2_data = 0x88,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversampling1)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_1,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 001 (oversampling x1), keep other bits the same */
+        .write_2_data = 0x84,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversampling8)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_8,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 100 (oversampling x8), keep other bits the same */
+        .write_2_data = 0x90,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversampling16)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_16,
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 101 (oversampling x16), keep other bits the same */
+        .write_2_data = 0x94,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingOversamplingSkipped)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_SKIPPED,
+        .read_1_data = 0x98,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 000 (oversampling skipped), keep other bits the same */
+        .write_2_data = 0x80,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingCbNull)
+{
+    SetOversamplingTestCfg cfg = {
+        .test_type = SET_OVERSAMPLING_TEST_TYPE_PRES,
+        .oversampling = BMP280_OVERSAMPLING_SKIPPED,
+        .read_1_data = 0x98,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 000 (oversampling skipped), keep other bits the same */
+        .write_2_data = 0x80,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = NULL,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_oversampling(&cfg);
+}
+
+TEST(BMP280, SetPresOversamlpingSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_set_pres_oversampling(NULL, BMP280_OVERSAMPLING_1, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, SetPresOversamlpingInvalidOversampling)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t invalid_oversampling = 0x24;
+    uint8_t rc = bmp280_set_pres_oversampling(bmp280, invalid_oversampling, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}

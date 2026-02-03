@@ -21,6 +21,14 @@
  */
 #define BMP280_BIT_MSK_TEMP_OVERSAMPLING(x) ((uint8_t)(((uint8_t)x) << 5))
 
+/**
+ * @brief Get pressure oversampling bit mask.
+ *
+ * @param x Pressure oversampling option. One of @ref BMP280Oversampling. E.g. oversampling_2 = 2, oversampling_4 =
+ * 3, oversampling_8 = 4.
+ */
+#define BMP280_BIT_MSK_PRES_OVERSAMPLING(x) ((uint8_t)(((uint8_t)x) << 2))
+
 /** Value to write to reset register to perform a reset. */
 #define BMP280_RESET_REG_VALUE 0xB6
 
@@ -453,6 +461,23 @@ static void read_set_temp_oversamlping_part_2(uint8_t io_rc, void *user_data)
     write_ctrl_meas_reg(self, write_val, generic_io_complete_cb, (void *)self);
 }
 
+static void read_set_pres_oversamlping_part_2(uint8_t io_rc, void *user_data)
+{
+    BMP280 self = (BMP280)user_data;
+    if (io_rc != BMP280_IO_RESULT_CODE_OK) {
+        execute_complete_cb(self, BMP280_RESULT_CODE_IO_ERR);
+        return;
+    }
+
+    uint8_t write_val = self->read_buf[0];
+    /* Clear bits[4:2] of ctrl_meas register value */
+    write_val = write_val & ~((uint8_t)0x1CU);
+    /* Set bits[4:2] of ctrl_meas register value to oversampling option */
+    write_val = write_val | BMP280_BIT_MSK_PRES_OVERSAMPLING(self->oversamlping);
+
+    write_ctrl_meas_reg(self, write_val, generic_io_complete_cb, (void *)self);
+}
+
 static void init_meas_part_2(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
@@ -552,5 +577,17 @@ uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
     start_sequence(self, cb, user_data);
     self->oversamlping = oversampling;
     read_ctrl_meas_reg(self, self->read_buf, read_set_temp_oversamlping_part_2, (void *)self);
+    return BMP280_RESULT_CODE_OK;
+}
+
+uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280CompleteCb cb, void *user_data)
+{
+    if (!self || !is_valid_oversampling(oversampling)) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
+    start_sequence(self, cb, user_data);
+    self->oversamlping = oversampling;
+    read_ctrl_meas_reg(self, self->read_buf, read_set_pres_oversamlping_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
