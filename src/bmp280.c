@@ -8,6 +8,7 @@
 #define BMP280_CHIP_ID_REG_ADDR 0xD0
 #define BMP280_RESET_REG_ADDR 0xE0
 #define BMP280_CTRL_MEAS_REG_ADDR 0xF4
+#define BMP280_CONFIG_REG_ADDR 0xF5
 #define BMP280_PRES_MSB_REG_ADDR 0xF7
 #define BMP280_TEMP_MSB_REG_ADDR 0xFA
 
@@ -19,7 +20,7 @@
  * @param x Temperature oversampling option. One of @ref BMP280Oversampling. E.g. oversampling_2 = 2, oversampling_4 =
  * 3, oversampling_8 = 4.
  */
-#define BMP280_BIT_MSK_TEMP_OVERSAMPLING(x) ((uint8_t)(((uint8_t)x) << 5))
+#define BMP280_BIT_MSK_CTRL_MEAS_OSRS_T(x) ((uint8_t)(((uint8_t)x) << 5))
 
 /**
  * @brief Get pressure oversampling bit mask.
@@ -27,7 +28,14 @@
  * @param x Pressure oversampling option. One of @ref BMP280Oversampling. E.g. oversampling_2 = 2, oversampling_4 =
  * 3, oversampling_8 = 4.
  */
-#define BMP280_BIT_MSK_PRES_OVERSAMPLING(x) ((uint8_t)(((uint8_t)x) << 2))
+#define BMP280_BIT_MSK_CTRL_MEAS_OSRS_P(x) ((uint8_t)(((uint8_t)x) << 2))
+
+/**
+ * @brief Get filter coefficient option bit mask.
+ *
+ * @param x Filter coefficient option. One of @ref BMP280FilterCoeff.
+ */
+#define BMP280_BIT_MSK_CONFIG_FILTER(x) ((uint8_t)(((uint8_t)x) << 2))
 
 /** Value to write to reset register to perform a reset. */
 #define BMP280_RESET_REG_VALUE 0xB6
@@ -128,7 +136,7 @@ static void send_reset_cmd(BMP280 self, BMP280_IOCompleteCb cb, void *user_data)
 }
 
 /**
- * @brief Read ctrl_meas_register.
+ * @brief Read ctrl_meas register.
  *
  * @param[in] self BMP280 instance.
  * @param[out] val Register value is written to this parameter.
@@ -151,6 +159,32 @@ static void read_ctrl_meas_reg(BMP280 self, uint8_t *const val, BMP280_IOComplet
 static void write_ctrl_meas_reg(BMP280 self, uint8_t val, BMP280_IOCompleteCb cb, void *user_data)
 {
     self->write_reg(BMP280_CTRL_MEAS_REG_ADDR, val, self->write_reg_user_data, cb, user_data);
+}
+
+/**
+ * @brief Read config register.
+ *
+ * @param[in] self BMP280 instance.
+ * @param[out] val Register value is written to this parameter.
+ * @param[in] cb Callback to execute once IO transaction to read the register is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ */
+static void read_config_reg(BMP280 self, uint8_t *const val, BMP280_IOCompleteCb cb, void *user_data)
+{
+    self->read_regs(BMP280_CONFIG_REG_ADDR, 1, val, self->read_regs_user_data, cb, user_data);
+}
+
+/**
+ * @brief Write a value to config register.
+ *
+ * @param[in] self BMP280 instance.
+ * @param[in] val Value to write.
+ * @param[in] cb Callback to execute once IO transaction to write the register is complete.
+ * @param[in] user_data User data to pass to @p cb.
+ */
+static void write_config_reg(BMP280 self, uint8_t val, BMP280_IOCompleteCb cb, void *user_data)
+{
+    self->write_reg(BMP280_CONFIG_REG_ADDR, val, self->write_reg_user_data, cb, user_data);
 }
 
 /**
@@ -444,7 +478,7 @@ static void read_meas_forced_mode_part_2(uint8_t io_rc, void *user_data)
     write_ctrl_meas_reg(self, write_val, read_meas_forced_mode_part_3, (void *)self);
 }
 
-static void read_set_temp_oversamlping_part_2(uint8_t io_rc, void *user_data)
+static void set_temp_oversamlping_part_2(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
     if (io_rc != BMP280_IO_RESULT_CODE_OK) {
@@ -456,12 +490,12 @@ static void read_set_temp_oversamlping_part_2(uint8_t io_rc, void *user_data)
     /* Clear the three MSb of ctrl_meas register value */
     write_val = write_val & ~((uint8_t)0xE0U);
     /* Set the three MSb of ctrl_meas register value to oversampling option */
-    write_val = write_val | BMP280_BIT_MSK_TEMP_OVERSAMPLING(self->oversamlping);
+    write_val = write_val | BMP280_BIT_MSK_CTRL_MEAS_OSRS_T(self->param);
 
     write_ctrl_meas_reg(self, write_val, generic_io_complete_cb, (void *)self);
 }
 
-static void read_set_pres_oversamlping_part_2(uint8_t io_rc, void *user_data)
+static void set_pres_oversamlping_part_2(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
     if (io_rc != BMP280_IO_RESULT_CODE_OK) {
@@ -473,9 +507,26 @@ static void read_set_pres_oversamlping_part_2(uint8_t io_rc, void *user_data)
     /* Clear bits[4:2] of ctrl_meas register value */
     write_val = write_val & ~((uint8_t)0x1CU);
     /* Set bits[4:2] of ctrl_meas register value to oversampling option */
-    write_val = write_val | BMP280_BIT_MSK_PRES_OVERSAMPLING(self->oversamlping);
+    write_val = write_val | BMP280_BIT_MSK_CTRL_MEAS_OSRS_P(self->param);
 
     write_ctrl_meas_reg(self, write_val, generic_io_complete_cb, (void *)self);
+}
+
+static void set_filter_coefficient_part_2(uint8_t io_rc, void *user_data)
+{
+    BMP280 self = (BMP280)user_data;
+    if (io_rc != BMP280_IO_RESULT_CODE_OK) {
+        execute_complete_cb(self, BMP280_RESULT_CODE_IO_ERR);
+        return;
+    }
+
+    uint8_t write_val = self->read_buf[0];
+    /* Clear bits[4:2] of config register value */
+    write_val = write_val & ~((uint8_t)0x1CU);
+    /* Set bits[4:2] of config register value to filter coefficient option */
+    write_val = write_val | BMP280_BIT_MSK_CONFIG_FILTER(self->param);
+
+    write_config_reg(self, write_val, generic_io_complete_cb, (void *)self);
 }
 
 static void init_meas_part_2(uint8_t io_rc, void *user_data)
@@ -575,8 +626,8 @@ uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
     }
 
     start_sequence(self, cb, user_data);
-    self->oversamlping = oversampling;
-    read_ctrl_meas_reg(self, self->read_buf, read_set_temp_oversamlping_part_2, (void *)self);
+    self->param = oversampling;
+    read_ctrl_meas_reg(self, self->read_buf, set_temp_oversamlping_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
 
@@ -587,7 +638,15 @@ uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
     }
 
     start_sequence(self, cb, user_data);
-    self->oversamlping = oversampling;
-    read_ctrl_meas_reg(self, self->read_buf, read_set_pres_oversamlping_part_2, (void *)self);
+    self->param = oversampling;
+    read_ctrl_meas_reg(self, self->read_buf, set_pres_oversamlping_part_2, (void *)self);
+    return BMP280_RESULT_CODE_OK;
+}
+
+uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280CompleteCb cb, void *user_data)
+{
+    start_sequence(self, cb, user_data);
+    self->param = filter_coeff;
+    read_config_reg(self, self->read_buf, set_filter_coefficient_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }

@@ -82,6 +82,14 @@ typedef enum {
     BMP280_OVERSAMPLING_16 = 5,
 } BMP280Oversampling;
 
+typedef enum {
+    BMP280_FILTER_COEFF_FILTER_OFF = 0,
+    BMP280_FILTER_COEFF_2 = 8,
+    BMP280_FILTER_COEFF_4 = 8,
+    BMP280_FILTER_COEFF_8 = 8,
+    BMP280_FILTER_COEFF_16 = 8,
+} BMP280FilterCoeff;
+
 typedef struct {
     /** Temperature in degrees Celsius, resolution is 0.01. Output value "5123" equals 51.23 degrees Celsius. */
     int32_t temperature;
@@ -267,6 +275,8 @@ uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p oversampling is not one of @ref BMP280Oversampling.
  */
 uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280CompleteCb cb, void *user_data);
+
+uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
 }
