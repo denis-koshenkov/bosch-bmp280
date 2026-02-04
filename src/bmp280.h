@@ -90,6 +90,13 @@ typedef enum {
     BMP280_FILTER_COEFF_16 = 4,
 } BMP280FilterCoeff;
 
+typedef enum {
+    /** Disable SPI 3 wire mode - sets SPI 4 wire mode. */
+    BMP280_SPI_3_WIRE_DIS = 0,
+    /** Sets SPI 3 wire mode. */
+    BMP280_SPI_3_WIRE_EN = 1,
+} BMP280Spi3Wire;
+
 typedef struct {
     /** Temperature in degrees Celsius, resolution is 0.01. Output value "5123" equals 51.23 degrees Celsius. */
     int32_t temperature;
@@ -293,6 +300,24 @@ uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p filter_coeff is not one of @ref BMP280FilterCoeff.
  */
 uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280CompleteCb cb, void *user_data);
+
+/**
+ * @brief Enable or disable SPI 3 wire interface mode.
+ *
+ * Once SPI 3 wire mode is set or an error occurrs, @p cb is executed. "rc" parameter of @p cb indicates
+ * success or reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully set the SPI 3 wire mode.
+ * - @ref BMP280_RESULT_CODE_IO_ERR One of the IO transactions failed.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[in] spi_3_wire Whether to enable or disable SPI 3 wire mode. One of @ref BMP280Spi3Wire.
+ * @param[in] cb Callback to execute once SPI 3 wire mode is set.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the SPI 3 wire mode.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p spi_3_wire is not one of @ref BMP280Spi3Wire.
+ */
+uint8_t bmp280_set_spi_3_wire_interface(BMP280 self, uint8_t spi_3_wire, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus
 }

@@ -1485,3 +1485,186 @@ TEST(BMP280, SetFiterCoeffInvalidFilterCoeff)
     uint8_t rc = bmp280_set_filter_coefficient(bmp280, invalid_filter_coeff, mock_bmp280_complete_cb, NULL);
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
+
+typedef struct {
+    /** SPI 3 wire option to pass to bmp280_set_spi_3_wire_interface. Must be one of @ref BMP280Spi3Wire. */
+    uint8_t spi_3_wire;
+    /** Data to return from first read regs that reads the config register. */
+    uint8_t read_1_data;
+    /** IO result code of first read regs that reads the config register. */
+    uint8_t read_1_io_rc;
+    /** Data to write to config register. */
+    uint8_t write_2_data;
+    /** IO result code of write reg that writes the config register to set the SPI 3 wire mode. */
+    uint8_t write_2_io_rc;
+    /** Complete cb to pass to bmp280_set_temp_oversampling. Two options: mock_bmp280_complete_cb or NULL. If it is
+     * mock_bmp280_complete_cb, then the test checks that that function is called with complete_cb_rc. */
+    BMP280CompleteCb complete_cb;
+    /** Result code to pass to complete_cb. If complete_cb is NULL, this value is not used in the test. */
+    uint8_t complete_cb_rc;
+} SetSpi3WireTestCfg;
+
+static void test_set_spi_3_wire_interface(const SetSpi3WireTestCfg *const cfg)
+{
+    void *complete_cb_user_data = (void *)0xAA;
+    /* Called from bmp280_set_spi_3_wire_interface */
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF5)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &cfg->read_1_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    if (cfg->read_1_io_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Called from read_reg_complete_cb */
+        mock()
+            .expectOneCall("mock_bmp280_write_reg")
+            .withParameter("addr", 0xF5)
+            .withParameter("reg_val", cfg->write_2_data)
+            .withParameter("user_data", write_reg_user_data)
+            .ignoreOtherParameters();
+    }
+    if (cfg->complete_cb) {
+        mock()
+            .expectOneCall("mock_bmp280_complete_cb")
+            .withParameter("rc", cfg->complete_cb_rc)
+            .withParameter("user_data", complete_cb_user_data);
+    }
+
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_set_spi_3_wire_interface(bmp280, cfg->spi_3_wire, cfg->complete_cb, complete_cb_user_data);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    read_regs_complete_cb(cfg->read_1_io_rc, read_regs_complete_cb_user_data);
+    if (cfg->read_1_io_rc == BMP280_IO_RESULT_CODE_OK) {
+        write_reg_complete_cb(cfg->write_2_io_rc, write_reg_complete_cb_user_data);
+    }
+}
+
+TEST(BMP280, SetSpi3WireReadFail)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_DIS,
+        /* Does not matter, read fails */
+        .read_1_data = 0x80,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        /* Does not matter */
+        .write_2_data = 0x81,
+        /* Does not matter */
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_IO_ERR,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireWriteFail)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_DIS,
+        .read_1_data = 0x89,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 0 (spi 3 wire disabled), keep other bits the same */
+        .write_2_data = 0x88,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_ERR,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_IO_ERR,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireDis)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_DIS,
+        .read_1_data = 0x89,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 0 (spi 3 wire disabled), keep other bits the same */
+        .write_2_data = 0x88,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireDisAltReadData)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_DIS,
+        .read_1_data = 0xF0,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 0 (spi 3 wire disabled), keep other bits the same */
+        .write_2_data = 0xF0,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireEn)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_EN,
+        .read_1_data = 0xFE,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 1 (spi 3 wire enabled), keep other bits the same */
+        .write_2_data = 0xFF,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireEnAltReadData)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_EN,
+        .read_1_data = 0xE1,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 1 (spi 3 wire enabled), keep other bits the same */
+        .write_2_data = 0xE1,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireCbNull)
+{
+    SetSpi3WireTestCfg cfg = {
+        .spi_3_wire = BMP280_SPI_3_WIRE_EN,
+        .read_1_data = 0xE1,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 1 (spi 3 wire enabled), keep other bits the same */
+        .write_2_data = 0xE1,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = NULL,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_spi_3_wire_interface(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_set_spi_3_wire_interface(NULL, BMP280_SPI_3_WIRE_DIS, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, SetSpi3WireInvalidSpi3WireOption)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t invalid_spi_3_wire = 0x99;
+    uint8_t rc = bmp280_set_spi_3_wire_interface(bmp280, invalid_spi_3_wire, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}

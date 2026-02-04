@@ -46,6 +46,16 @@
 /** Bit mask for the filter part of the config register. */
 #define BMP280_BIT_MSK_CONFIG_FILTER ((uint8_t)(((uint8_t)0x7) << 2))
 
+/**
+ * @brief Get spi 3 wire option bit mask.
+ *
+ * @param x Spi 3 wire option. One of @ref BMP280Spi3Wire.
+ */
+#define BMP280_BIT_MSK_CONFIG_SPI3W_EN_OPTION(x) ((uint8_t)x)
+
+/** Bit mask for the spi 3 wire part of the config register. */
+#define BMP280_BIT_MSK_CONFIG_SPI3W_EN ((uint8_t)1)
+
 /** Value to write to reset register to perform a reset. */
 #define BMP280_RESET_REG_VALUE 0xB6
 
@@ -134,6 +144,19 @@ static bool is_valid_filter_coeff(uint8_t filter_coeff)
         || (filter_coeff == BMP280_FILTER_COEFF_16)
     );
     // clang-format on
+}
+
+/**
+ * @brief Check if SPI 3 wire option is valid.
+ *
+ * @param spi_3_wire SPI 3 wire option.
+ *
+ * @retval true SPI 3 wire option is valid.
+ * @retval false SPI 3 wire option is invalid.
+ */
+static bool is_valid_spi_3_wire(uint8_t spi_3_wire)
+{
+    return (spi_3_wire == BMP280_SPI_3_WIRE_DIS) || (spi_3_wire == BMP280_SPI_3_WIRE_EN);
 }
 
 /**
@@ -559,6 +582,23 @@ static void set_filter_coefficient_part_2(uint8_t io_rc, void *user_data)
     write_config_reg(self, write_val, generic_io_complete_cb, (void *)self);
 }
 
+static void set_spi_3_wire_interface_part_2(uint8_t io_rc, void *user_data)
+{
+    BMP280 self = (BMP280)user_data;
+    if (io_rc != BMP280_IO_RESULT_CODE_OK) {
+        execute_complete_cb(self, BMP280_RESULT_CODE_IO_ERR);
+        return;
+    }
+
+    uint8_t write_val = self->read_buf[0];
+    /* Clear bit 0 of config register value */
+    write_val = write_val & ~BMP280_BIT_MSK_CONFIG_SPI3W_EN;
+    /* Set bit 0 of config register value to spi 3 wire option */
+    write_val = write_val | BMP280_BIT_MSK_CONFIG_SPI3W_EN_OPTION(self->param);
+
+    write_config_reg(self, write_val, generic_io_complete_cb, (void *)self);
+}
+
 static void init_meas_part_2(uint8_t io_rc, void *user_data)
 {
     BMP280 self = (BMP280)user_data;
@@ -682,5 +722,17 @@ uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280C
     start_sequence(self, cb, user_data);
     self->param = filter_coeff;
     read_config_reg(self, self->read_buf, set_filter_coefficient_part_2, (void *)self);
+    return BMP280_RESULT_CODE_OK;
+}
+
+uint8_t bmp280_set_spi_3_wire_interface(BMP280 self, uint8_t spi_3_wire, BMP280CompleteCb cb, void *user_data)
+{
+    if (!self || !is_valid_spi_3_wire(spi_3_wire)) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
+    start_sequence(self, cb, user_data);
+    self->param = spi_3_wire;
+    read_config_reg(self, self->read_buf, set_spi_3_wire_interface_part_2, (void *)self);
     return BMP280_RESULT_CODE_OK;
 }
