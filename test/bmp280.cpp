@@ -1391,3 +1391,63 @@ TEST(BMP280, SetFiterCoeffFilterOffAltReadData)
     };
     test_set_filter_coefficient(&cfg);
 }
+
+TEST(BMP280, SetFiterCoeff2)
+{
+    SetFilterCoeffTestCfg cfg = {
+        .filter_coeff = BMP280_FILTER_COEFF_2,
+        .read_1_data = 0x5A,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 001 (filter coeff 2), keep other bits the same */
+        .write_2_data = 0x46,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_filter_coefficient(&cfg);
+}
+
+TEST(BMP280, SetFiterCoeff4)
+{
+    SetFilterCoeffTestCfg cfg = {
+        .filter_coeff = BMP280_FILTER_COEFF_4,
+        .read_1_data = 0x00,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 010 (filter coeff 4), keep other bits the same */
+        .write_2_data = 0x08,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_filter_coefficient(&cfg);
+}
+
+TEST(BMP280, SetFiterCoeff8)
+{
+    SetFilterCoeffTestCfg cfg = {
+        .filter_coeff = BMP280_FILTER_COEFF_8,
+        .read_1_data = 0x33,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 011 (filter coeff 8), keep other bits the same */
+        .write_2_data = 0x2F,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_filter_coefficient(&cfg);
+}
+
+TEST(BMP280, SetFiterCoeff16)
+{
+    SetFilterCoeffTestCfg cfg = {
+        .filter_coeff = BMP280_FILTER_COEFF_16,
+        .read_1_data = 0x44,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 100 (filter coeff 16), keep other bits the same */
+        .write_2_data = 0x50,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = mock_bmp280_complete_cb,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_filter_coefficient(&cfg);
+}

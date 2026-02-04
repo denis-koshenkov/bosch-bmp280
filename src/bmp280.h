@@ -84,10 +84,10 @@ typedef enum {
 
 typedef enum {
     BMP280_FILTER_COEFF_FILTER_OFF = 0,
-    BMP280_FILTER_COEFF_2 = 8,
-    BMP280_FILTER_COEFF_4 = 8,
-    BMP280_FILTER_COEFF_8 = 8,
-    BMP280_FILTER_COEFF_16 = 8,
+    BMP280_FILTER_COEFF_2 = 1,
+    BMP280_FILTER_COEFF_4 = 2,
+    BMP280_FILTER_COEFF_8 = 3,
+    BMP280_FILTER_COEFF_16 = 4,
 } BMP280FilterCoeff;
 
 typedef struct {
