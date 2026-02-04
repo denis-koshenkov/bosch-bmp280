@@ -276,6 +276,22 @@ uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
  */
 uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280CompleteCb cb, void *user_data);
 
+/**
+ * @brief Set filter coefficient option.
+ *
+ * Once filter coefficient is set or an error occurrs, @p cb is executed. "rc" parameter of @p cb indicates
+ * success or reason for failure:
+ * - @ref BMP280_RESULT_CODE_OK Successfully set the filter coefficient.
+ * - @ref BMP280_RESULT_CODE_IO_ERR One of the IO transactions failed.
+ *
+ * @param[in] self BMP280 instance created by @ref bmp280_create.
+ * @param[in] filter_coeff Filter coefficient option to set. One of @ref BMP280FilterCoeff.
+ * @param[in] cb Callback to execute once filter coefficient is set.
+ * @param[in] user_data User data to pass to @p cb.
+ *
+ * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the filter coefficient.
+ * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p filter_coeff is not one of @ref BMP280FilterCoeff.
+ */
 uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280CompleteCb cb, void *user_data);
 
 #ifdef __cplusplus

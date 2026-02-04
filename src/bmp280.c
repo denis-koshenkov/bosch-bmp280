@@ -116,6 +116,27 @@ static bool is_valid_oversampling(uint8_t oversampling)
 }
 
 /**
+ * @brief Check if filter coefficient option is valid.
+ *
+ * @param filter_coeff Filter coefficient option.
+ *
+ * @retval true Filter coefficient option is valid.
+ * @retval false Filter coefficient option is invalid.
+ */
+static bool is_valid_filter_coeff(uint8_t filter_coeff)
+{
+    // clang-format off
+    return (
+        (filter_coeff == BMP280_FILTER_COEFF_FILTER_OFF)
+        || (filter_coeff == BMP280_FILTER_COEFF_2)
+        || (filter_coeff == BMP280_FILTER_COEFF_4)
+        || (filter_coeff == BMP280_FILTER_COEFF_8)
+        || (filter_coeff == BMP280_FILTER_COEFF_16)
+    );
+    // clang-format on
+}
+
+/**
  * @brief Read chip ID from the chip ID regsiter.
  *
  * @pre @p self has been validated to not be NULL.
@@ -654,6 +675,10 @@ uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
 
 uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280CompleteCb cb, void *user_data)
 {
+    if (!self || !is_valid_filter_coeff(filter_coeff)) {
+        return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+
     start_sequence(self, cb, user_data);
     self->param = filter_coeff;
     read_config_reg(self, self->read_buf, set_filter_coefficient_part_2, (void *)self);

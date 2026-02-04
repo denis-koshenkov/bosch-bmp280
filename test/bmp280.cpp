@@ -1451,3 +1451,37 @@ TEST(BMP280, SetFiterCoeff16)
     };
     test_set_filter_coefficient(&cfg);
 }
+
+TEST(BMP280, SetFiterCoeffCbNull)
+{
+    SetFilterCoeffTestCfg cfg = {
+        .filter_coeff = BMP280_FILTER_COEFF_16,
+        .read_1_data = 0x44,
+        .read_1_io_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 100 (filter coeff 16), keep other bits the same */
+        .write_2_data = 0x50,
+        .write_2_io_rc = BMP280_IO_RESULT_CODE_OK,
+        .complete_cb = NULL,
+        .complete_cb_rc = BMP280_RESULT_CODE_OK,
+    };
+    test_set_filter_coefficient(&cfg);
+}
+
+TEST(BMP280, SetFiterCoeffSelfNull)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t rc = bmp280_set_filter_coefficient(NULL, BMP280_FILTER_COEFF_4, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
+
+TEST(BMP280, SetFiterCoeffInvalidFilterCoeff)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    uint8_t invalid_filter_coeff = 0x56;
+    uint8_t rc = bmp280_set_filter_coefficient(bmp280, invalid_filter_coeff, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
+}
