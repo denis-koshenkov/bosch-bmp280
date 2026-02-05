@@ -1781,3 +1781,62 @@ TEST(BMP280, SetSpi3WireInterfaceBusy)
 {
     test_busy_if_seq_in_progress(set_spi_3_wire_interface);
 }
+
+static void test_read_seq_cannot_be_interrupted(uint8_t read_1_start_reg, size_t read_1_num_regs, uint8_t *read_1_data,
+                                                uint8_t read_1_rc, BMP280Function start_seq)
+{
+    if (!start_seq) {
+        FAIL_TEST("Invalid args");
+    }
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", read_1_start_reg)
+        .withParameter("num_regs", read_1_num_regs)
+        .withOutputParameterReturning("data", read_1_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+
+    uint8_t rc = start_seq();
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    uint8_t other_cmd_rc;
+    other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+    mock().expectOneCall("mock_bmp280_complete_cb").ignoreOtherParameters();
+    read_regs_complete_cb(read_1_rc, read_regs_complete_cb_user_data);
+
+    /* Sequence finished, other operations are now allowed */
+    /* Exact value does not matter */
+    uint8_t read_2_data = 0x46;
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF4)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &read_2_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, other_cmd_rc);
+}
+
+TEST(BMP280, GetChipIdCannotBeInterruptedReadFail)
+{
+    uint8_t read_1_start_reg = 0xD0;
+    size_t read_1_num_regs = 1;
+    uint8_t read_1_data = 0x58;
+    uint8_t read_1_rc = BMP280_IO_RESULT_CODE_ERR;
+    test_read_seq_cannot_be_interrupted(read_1_start_reg, read_1_num_regs, &read_1_data, read_1_rc, get_chip_id);
+}
+
+TEST(BMP280, GetChipIdCannotBeInterruptedReadSuccess)
+{
+    uint8_t read_1_start_reg = 0xD0;
+    size_t read_1_num_regs = 1;
+    uint8_t read_1_data = 0x58;
+    uint8_t read_1_rc = BMP280_IO_RESULT_CODE_OK;
+    test_read_seq_cannot_be_interrupted(read_1_start_reg, read_1_num_regs, &read_1_data, read_1_rc, get_chip_id);
+}
