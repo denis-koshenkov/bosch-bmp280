@@ -2048,3 +2048,45 @@ TEST(BMP280, SetFilterCoeffCannotBeInterruptedSuccess)
     };
     test_read_write_seq_cannot_be_interrupted(&cfg);
 }
+
+TEST(BMP280, SetSpi3WireCannotBeInterruptedReadFail)
+{
+    ReadWriteSeqCannotBeInterruptedTestCfg cfg = {
+        .reg_addr = 0xF5,
+        .read_1_data = 0xFE,
+        .read_1_rc = BMP280_IO_RESULT_CODE_ERR,
+        /* Set bit 0 to 1 (spi 3 wire enabled), keep other bits the same */
+        .write_2_data = 0xFF,
+        .write_2_rc = BMP280_IO_RESULT_CODE_ERR,
+        .start_seq = set_spi_3_wire_interface,
+    };
+    test_read_write_seq_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireCannotBeInterruptedWriteFail)
+{
+    ReadWriteSeqCannotBeInterruptedTestCfg cfg = {
+        .reg_addr = 0xF5,
+        .read_1_data = 0xFE,
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 1 (spi 3 wire enabled), keep other bits the same */
+        .write_2_data = 0xFF,
+        .write_2_rc = BMP280_IO_RESULT_CODE_ERR,
+        .start_seq = set_spi_3_wire_interface,
+    };
+    test_read_write_seq_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, SetSpi3WireCannotBeInterruptedSuccess)
+{
+    ReadWriteSeqCannotBeInterruptedTestCfg cfg = {
+        .reg_addr = 0xF5,
+        .read_1_data = 0xFE,
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bit 0 to 1 (spi 3 wire enabled), keep other bits the same */
+        .write_2_data = 0xFF,
+        .write_2_rc = BMP280_IO_RESULT_CODE_OK,
+        .start_seq = set_spi_3_wire_interface,
+    };
+    test_read_write_seq_cannot_be_interrupted(&cfg);
+}
