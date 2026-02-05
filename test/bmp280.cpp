@@ -366,7 +366,7 @@ static void test_read_meas_forced_mode(const ReadMeasForcedModeTestCfg *const cf
             } else if (cfg->meas_type == BMP280_MEAS_TYPE_TEMP_AND_PRES) {
                 start_addr = 0xF7;
             } else {
-                FAIL_TEST("Invalis meas_type");
+                FAIL_TEST("Invalid meas_type");
             }
             /* Called from timer_expired_cb */
             mock()
@@ -2089,4 +2089,141 @@ TEST(BMP280, SetSpi3WireCannotBeInterruptedSuccess)
         .start_seq = set_spi_3_wire_interface,
     };
     test_read_write_seq_cannot_be_interrupted(&cfg);
+}
+
+typedef struct {
+    uint8_t read_1_rc;
+    uint8_t write_2_rc;
+    uint8_t read_3_rc;
+} ReadMeasForcedModeCannotBeInterruptedTestCfg;
+
+static void
+test_read_meas_forced_mode_cannot_be_interrupted(const ReadMeasForcedModeCannotBeInterruptedTestCfg *const cfg)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(default_calib_data);
+
+    uint8_t read_1_data = 0x03;
+    /* Set the two LSb to 01, keep other bits the same */
+    uint8_t write_2_data = 0x01;
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF4)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &read_1_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    if (cfg->read_1_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Called from read_regs_complete_cb */
+        mock()
+            .expectOneCall("mock_bmp280_write_reg")
+            .withParameter("addr", 0xF4)
+            .withParameter("reg_val", write_2_data)
+            .withParameter("user_data", write_reg_user_data)
+            .ignoreOtherParameters();
+        if (cfg->write_2_rc == BMP280_IO_RESULT_CODE_OK) {
+            /* Called from write_reg_complete_cb */
+            mock()
+                .expectOneCall("mock_bmp280_start_timer")
+                .withParameter("duration_ms", 20)
+                .withParameter("user_data", start_timer_user_data)
+                .ignoreOtherParameters();
+            /* Pres 415148, temp 519888, example from datasheet p.23 */
+            uint8_t read_3_data[] = {0x65, 0x5A, 0xC0, 0x7E, 0xED, 0x0};
+            /* Called from timer_expired_cb */
+            mock()
+                .expectOneCall("mock_bmp280_read_regs")
+                .withParameter("start_addr", 0xF7)
+                .withParameter("num_regs", 6)
+                .withOutputParameterReturning("data", read_3_data, 6)
+                .withParameter("user_data", read_regs_user_data)
+                .ignoreOtherParameters();
+        }
+    }
+    mock().expectOneCall("mock_bmp280_complete_cb").ignoreOtherParameters();
+
+    BMP280Meas meas;
+    uint8_t rc =
+        bmp280_read_meas_forced_mode(bmp280, BMP280_MEAS_TYPE_TEMP_AND_PRES, 20, &meas, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    uint8_t other_cmd_rc;
+    other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+    read_regs_complete_cb(cfg->read_1_rc, read_regs_complete_cb_user_data);
+    if (cfg->read_1_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Check that sequence cannot be interrupted after first read */
+        other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+        CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+        write_reg_complete_cb(cfg->write_2_rc, write_reg_complete_cb_user_data);
+        if (cfg->write_2_rc == BMP280_IO_RESULT_CODE_OK) {
+            /* Check that sequence cannot be interrupted after second write */
+            other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+            CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+            timer_expired_cb(timer_expired_cb_user_data);
+
+            /* Check that sequence cannot be interrupted after timer expired */
+            other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+            CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+            read_regs_complete_cb(cfg->read_1_rc, read_regs_complete_cb_user_data);
+        }
+    }
+
+    /* Sequence finished, other operations are now allowed */
+    /* Exact value does not matter */
+    uint8_t read_2_data = 0x46;
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF4)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &read_2_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, other_cmd_rc);
+}
+
+TEST(BMP280, ReadMeasForcedModeCannotBeInterruptedRead1Fail)
+{
+    ReadMeasForcedModeCannotBeInterruptedTestCfg cfg = {
+        .read_1_rc = BMP280_IO_RESULT_CODE_ERR,
+        .write_2_rc = BMP280_IO_RESULT_CODE_ERR,
+        .read_3_rc = BMP280_IO_RESULT_CODE_ERR,
+    };
+    test_read_meas_forced_mode_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, ReadMeasForcedModeCannotBeInterruptedWrite2Fail)
+{
+    ReadMeasForcedModeCannotBeInterruptedTestCfg cfg = {
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        .write_2_rc = BMP280_IO_RESULT_CODE_ERR,
+        .read_3_rc = BMP280_IO_RESULT_CODE_ERR,
+    };
+    test_read_meas_forced_mode_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, ReadMeasForcedModeCannotBeInterruptedRead3Fail)
+{
+    ReadMeasForcedModeCannotBeInterruptedTestCfg cfg = {
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        .write_2_rc = BMP280_IO_RESULT_CODE_OK,
+        .read_3_rc = BMP280_IO_RESULT_CODE_ERR,
+    };
+    test_read_meas_forced_mode_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, ReadMeasForcedModeCannotBeInterruptedSuccess)
+{
+    ReadMeasForcedModeCannotBeInterruptedTestCfg cfg = {
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        .write_2_rc = BMP280_IO_RESULT_CODE_OK,
+        .read_3_rc = BMP280_IO_RESULT_CODE_OK,
+    };
+    test_read_meas_forced_mode_cannot_be_interrupted(&cfg);
 }
