@@ -2227,3 +2227,66 @@ TEST(BMP280, ReadMeasForcedModeCannotBeInterruptedSuccess)
     };
     test_read_meas_forced_mode_cannot_be_interrupted(&cfg);
 }
+
+static void test_reset_with_delay_cannot_be_interrupted(uint8_t write_rc)
+{
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+
+    mock()
+        .expectOneCall("mock_bmp280_write_reg")
+        .withParameter("addr", 0xE0)
+        .withParameter("reg_val", 0xB6)
+        .withParameter("user_data", write_reg_user_data)
+        .ignoreOtherParameters();
+    if (write_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Called from write_reg_complete_cb */
+        mock()
+            .expectOneCall("mock_bmp280_start_timer")
+            .withParameter("duration_ms", 2)
+            .withParameter("user_data", start_timer_user_data)
+            .ignoreOtherParameters();
+    }
+    mock().expectOneCall("mock_bmp280_complete_cb").ignoreOtherParameters();
+
+    uint8_t rc = bmp280_reset_with_delay(bmp280, mock_bmp280_complete_cb, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc);
+
+    uint8_t other_cmd_rc;
+    other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+    write_reg_complete_cb(write_rc, write_reg_complete_cb_user_data);
+    if (write_rc == BMP280_IO_RESULT_CODE_OK) {
+        /* Check that sequence cannot be interrupted between after write before timer expiry */
+        other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+        CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, other_cmd_rc);
+
+        timer_expired_cb(timer_expired_cb_user_data);
+    }
+
+    /* Sequence finished, other operations are now allowed */
+    /* Exact value does not matter */
+    uint8_t read_2_data = 0x46;
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF4)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &read_2_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+    other_cmd_rc = bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, other_cmd_rc);
+}
+
+TEST(BMP280, ResetWithDelayCannotBeInterruptedWriteFail)
+{
+    uint8_t write_rc = BMP280_IO_RESULT_CODE_ERR;
+    test_reset_with_delay_cannot_be_interrupted(write_rc);
+}
+
+TEST(BMP280, ResetWithDelayCannotBeInterruptedSuccess)
+{
+    uint8_t write_rc = BMP280_IO_RESULT_CODE_OK;
+    test_reset_with_delay_cannot_be_interrupted(write_rc);
+}
