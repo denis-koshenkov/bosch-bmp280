@@ -74,6 +74,9 @@ struct BMP280Struct {
     CalibPres calib_pres;
     /** Whether bmp280_init_meas has been called. */
     bool is_meas_init;
+    /** Whether there is currently a sequence in progress. This means that an IO operation or a timer has been started.
+     * In that scenario, new sequences should not be started - first, the current sequence needs to finish. */
+    bool seq_in_progress;
 };
 
 #ifdef __cplusplus

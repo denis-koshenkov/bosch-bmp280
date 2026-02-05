@@ -269,6 +269,7 @@ static void start_sequence(BMP280 self, BMP280CompleteCb cb, void *user_data)
 {
     self->complete_cb = cb;
     self->complete_cb_user_data = user_data;
+    self->seq_in_progress = true;
 }
 
 /**
@@ -281,6 +282,7 @@ static void start_sequence(BMP280 self, BMP280CompleteCb cb, void *user_data)
  */
 static void execute_complete_cb(BMP280 self, uint8_t rc)
 {
+    self->seq_in_progress = false;
     if (self->complete_cb) {
         self->complete_cb(rc, self->complete_cb_user_data);
     }
@@ -634,6 +636,7 @@ uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg)
     (*inst)->start_timer = cfg->start_timer;
     (*inst)->start_timer_user_data = cfg->start_timer_user_data;
     (*inst)->is_meas_init = false;
+    (*inst)->seq_in_progress = false;
 
     return BMP280_RESULT_CODE_OK;
 }
@@ -642,6 +645,9 @@ uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb
 {
     if (!self || !chip_id) {
         return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
     }
 
     start_sequence(self, cb, user_data);
@@ -654,6 +660,9 @@ uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_dat
     if (!self) {
         return BMP280_RESULT_CODE_INVAL_ARG;
     }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
+    }
 
     start_sequence(self, cb, user_data);
     send_reset_cmd(self, reset_with_delay_part_2, (void *)self);
@@ -664,6 +673,9 @@ uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data)
 {
     if (!self) {
         return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
     }
 
     start_sequence(self, cb, user_data);
@@ -676,6 +688,9 @@ uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t me
 {
     if (!self || !meas || (meas_time_ms == 0) || !is_valid_meas_type(meas_type)) {
         return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
     }
     if (!self->is_meas_init) {
         return BMP280_RESULT_CODE_INVAL_USAGE;
@@ -694,6 +709,9 @@ uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
     if (!self || !is_valid_oversampling(oversampling)) {
         return BMP280_RESULT_CODE_INVAL_ARG;
     }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
+    }
 
     start_sequence(self, cb, user_data);
     self->param = oversampling;
@@ -705,6 +723,9 @@ uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
 {
     if (!self || !is_valid_oversampling(oversampling)) {
         return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
     }
 
     start_sequence(self, cb, user_data);
@@ -718,6 +739,9 @@ uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280C
     if (!self || !is_valid_filter_coeff(filter_coeff)) {
         return BMP280_RESULT_CODE_INVAL_ARG;
     }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
+    }
 
     start_sequence(self, cb, user_data);
     self->param = filter_coeff;
@@ -729,6 +753,9 @@ uint8_t bmp280_set_spi_3_wire_interface(BMP280 self, uint8_t spi_3_wire, BMP280C
 {
     if (!self || !is_valid_spi_3_wire(spi_3_wire)) {
         return BMP280_RESULT_CODE_INVAL_ARG;
+    }
+    if (self->seq_in_progress) {
+        return BMP280_RESULT_CODE_BUSY;
     }
 
     start_sequence(self, cb, user_data);

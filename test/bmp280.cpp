@@ -1668,3 +1668,116 @@ TEST(BMP280, SetSpi3WireInvalidSpi3WireOption)
     uint8_t rc = bmp280_set_spi_3_wire_interface(bmp280, invalid_spi_3_wire, mock_bmp280_complete_cb, NULL);
     CHECK_EQUAL(BMP280_RESULT_CODE_INVAL_ARG, rc);
 }
+
+typedef uint8_t (*BMP280Function)();
+
+static void test_busy_if_seq_in_progress(BMP280Function function)
+{
+    void *complete_cb_user_data = (void *)0xA9;
+
+    uint8_t rc_create = bmp280_create(&bmp280, &init_cfg);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_create);
+    call_init_meas(default_calib_data);
+
+    /* Does not matter */
+    uint8_t read_data = 0x55;
+    /* Called from bmp280_set_filter_coefficient */
+    mock()
+        .expectOneCall("mock_bmp280_read_regs")
+        .withParameter("start_addr", 0xF5)
+        .withParameter("num_regs", 1)
+        .withOutputParameterReturning("data", &read_data, 1)
+        .withParameter("user_data", read_regs_user_data)
+        .ignoreOtherParameters();
+
+    uint8_t rc_set_filter_coeff = bmp280_set_filter_coefficient(bmp280, BMP280_FILTER_COEFF_2, NULL, NULL);
+    CHECK_EQUAL(BMP280_RESULT_CODE_OK, rc_set_filter_coeff);
+    /* Read regs complete callback is not executed yet, so "set filter coefficient" sequence is still in progres. The
+     * driver should reject attempts to start new sequences. */
+
+    uint8_t rc = function();
+    CHECK_EQUAL(BMP280_RESULT_CODE_BUSY, rc);
+}
+
+static uint8_t get_chip_id()
+{
+    uint8_t chip_id;
+    return bmp280_get_chip_id(bmp280, &chip_id, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, GetChipIdBusy)
+{
+    test_busy_if_seq_in_progress(get_chip_id);
+}
+
+static uint8_t reset_with_delay()
+{
+    return bmp280_reset_with_delay(bmp280, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, ResetWithDelayBusy)
+{
+    test_busy_if_seq_in_progress(reset_with_delay);
+}
+
+static uint8_t init_meas()
+{
+    return bmp280_init_meas(bmp280, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, InitMeasBusy)
+{
+    test_busy_if_seq_in_progress(init_meas);
+}
+
+static uint8_t read_meas_forced_mode()
+{
+    BMP280Meas meas;
+    return bmp280_read_meas_forced_mode(bmp280, BMP280_MEAS_TYPE_TEMP_AND_PRES, 20, &meas, mock_bmp280_complete_cb,
+                                        NULL);
+}
+
+TEST(BMP280, ReadMeasForcedModeBusy)
+{
+    test_busy_if_seq_in_progress(read_meas_forced_mode);
+}
+
+static uint8_t set_temp_oversampling()
+{
+    return bmp280_set_temp_oversampling(bmp280, BMP280_OVERSAMPLING_1, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, SetTempOversamplingBusy)
+{
+    test_busy_if_seq_in_progress(set_temp_oversampling);
+}
+
+static uint8_t set_pres_oversampling()
+{
+    return bmp280_set_pres_oversampling(bmp280, BMP280_OVERSAMPLING_4, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, SetPresOversamplingBusy)
+{
+    test_busy_if_seq_in_progress(set_pres_oversampling);
+}
+
+static uint8_t set_filter_coefficient()
+{
+    return bmp280_set_filter_coefficient(bmp280, BMP280_FILTER_COEFF_16, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, SetFilterCoefficientBusy)
+{
+    test_busy_if_seq_in_progress(set_filter_coefficient);
+}
+
+static uint8_t set_spi_3_wire_interface()
+{
+    return bmp280_set_spi_3_wire_interface(bmp280, BMP280_SPI_3_WIRE_EN, mock_bmp280_complete_cb, NULL);
+}
+
+TEST(BMP280, SetSpi3WireInterfaceBusy)
+{
+    test_busy_if_seq_in_progress(set_spi_3_wire_interface);
+}

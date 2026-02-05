@@ -61,6 +61,7 @@ typedef enum {
     /** Something went wrong in the code of this driver. */
     BMP280_RESULT_CODE_DRIVER_ERR,
     BMP280_RESULT_CODE_INVAL_USAGE,
+    BMP280_RESULT_CODE_BUSY,
 } BMP280ResultCode;
 
 /* There is no option to read out just pressure, because temperature value is needed to convert raw pressure values
@@ -151,6 +152,7 @@ uint8_t bmp280_create(BMP280 *const inst, const BMP280InitCfg *const cfg);
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated chip id readout.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL or @p chip_id is NULL.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb cb, void *user_data);
 
@@ -173,6 +175,7 @@ uint8_t bmp280_get_chip_id(BMP280 self, uint8_t *const chip_id, BMP280CompleteCb
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated reset with delay sequence.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_data);
 
@@ -197,6 +200,7 @@ uint8_t bmp280_reset_with_delay(BMP280 self, BMP280CompleteCb cb, void *user_dat
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated readout of calibration values.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data);
 
@@ -243,6 +247,7 @@ uint8_t bmp280_init_meas(BMP280 self, BMP280CompleteCb cb, void *user_data);
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, @p meas is NULL, @p meas_type is not one of @ref
  * BMP280MeasType, or @p meas_time is 0.
  * @retval BMP280_RESULT_CODE_INVAL_USAGE @ref bmp280_init_meas has not been called for this BMP280 instance.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t meas_time_ms, BMP280Meas *const meas,
                                      BMP280CompleteCb cb, void *user_data);
@@ -262,6 +267,7 @@ uint8_t bmp280_read_meas_forced_mode(BMP280 self, uint8_t meas_type, uint32_t me
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the oversampling option.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p oversampling is not one of @ref BMP280Oversampling.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280CompleteCb cb, void *user_data);
 
@@ -280,6 +286,7 @@ uint8_t bmp280_set_temp_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the oversampling option.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p oversampling is not one of @ref BMP280Oversampling.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280CompleteCb cb, void *user_data);
 
@@ -298,6 +305,7 @@ uint8_t bmp280_set_pres_oversampling(BMP280 self, uint8_t oversampling, BMP280Co
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the filter coefficient.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p filter_coeff is not one of @ref BMP280FilterCoeff.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280CompleteCb cb, void *user_data);
 
@@ -316,6 +324,7 @@ uint8_t bmp280_set_filter_coefficient(BMP280 self, uint8_t filter_coeff, BMP280C
  *
  * @retval BMP280_RESULT_CODE_OK Successfully initiated setting the SPI 3 wire mode.
  * @retval BMP280_RESULT_CODE_INVAL_ARG @p self is NULL, or @p spi_3_wire is not one of @ref BMP280Spi3Wire.
+ * @retval BMP280_RESULT_CODE_BUSY Another operation is already in progress, failed to start this operation.
  */
 uint8_t bmp280_set_spi_3_wire_interface(BMP280 self, uint8_t spi_3_wire, BMP280CompleteCb cb, void *user_data);
 
