@@ -1964,3 +1964,45 @@ TEST(BMP280, SetTempOversamplingCannotBeInterruptedSuccess)
     };
     test_read_write_seq_cannot_be_interrupted(&cfg);
 }
+
+TEST(BMP280, SetPresOversamplingCannotBeInterruptedReadFail)
+{
+    ReadWriteSeqCannotBeInterruptedTestCfg cfg = {
+        .reg_addr = 0xF4,
+        .read_1_data = 0x80,
+        .read_1_rc = BMP280_IO_RESULT_CODE_ERR,
+        /* Set bits[4:2] to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x8C,
+        .write_2_rc = BMP280_IO_RESULT_CODE_ERR,
+        .start_seq = set_pres_oversampling,
+    };
+    test_read_write_seq_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingCannotBeInterruptedWriteFail)
+{
+    ReadWriteSeqCannotBeInterruptedTestCfg cfg = {
+        .reg_addr = 0xF4,
+        .read_1_data = 0x80,
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x8C,
+        .write_2_rc = BMP280_IO_RESULT_CODE_ERR,
+        .start_seq = set_pres_oversampling,
+    };
+    test_read_write_seq_cannot_be_interrupted(&cfg);
+}
+
+TEST(BMP280, SetPresOversamplingCannotBeInterruptedSuccess)
+{
+    ReadWriteSeqCannotBeInterruptedTestCfg cfg = {
+        .reg_addr = 0xF4,
+        .read_1_data = 0x80,
+        .read_1_rc = BMP280_IO_RESULT_CODE_OK,
+        /* Set bits[4:2] to 011 (oversampling x4), keep other bits the same */
+        .write_2_data = 0x8C,
+        .write_2_rc = BMP280_IO_RESULT_CODE_OK,
+        .start_seq = set_pres_oversampling,
+    };
+    test_read_write_seq_cannot_be_interrupted(&cfg);
+}
