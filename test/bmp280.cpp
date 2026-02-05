@@ -1840,3 +1840,21 @@ TEST(BMP280, GetChipIdCannotBeInterruptedReadSuccess)
     uint8_t read_1_rc = BMP280_IO_RESULT_CODE_OK;
     test_read_seq_cannot_be_interrupted(read_1_start_reg, read_1_num_regs, &read_1_data, read_1_rc, get_chip_id);
 }
+
+TEST(BMP280, InitMeasCannotBeInterruptedReadFail)
+{
+    uint8_t read_1_start_reg = 0x88;
+    size_t read_1_num_regs = 24;
+    uint8_t *read_1_data = default_calib_data;
+    uint8_t read_1_rc = BMP280_IO_RESULT_CODE_ERR;
+    test_read_seq_cannot_be_interrupted(read_1_start_reg, read_1_num_regs, read_1_data, read_1_rc, init_meas);
+}
+
+TEST(BMP280, InitMeasCannotBeInterruptedReadSuccess)
+{
+    uint8_t read_1_start_reg = 0x88;
+    size_t read_1_num_regs = 24;
+    uint8_t *read_1_data = default_calib_data;
+    uint8_t read_1_rc = BMP280_IO_RESULT_CODE_OK;
+    test_read_seq_cannot_be_interrupted(read_1_start_reg, read_1_num_regs, read_1_data, read_1_rc, init_meas);
+}
