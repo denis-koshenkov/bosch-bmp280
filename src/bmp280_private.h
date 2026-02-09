@@ -6,6 +6,10 @@ extern "C"
 {
 #endif
 
+#include <stdint.h>
+
+#include "bmp280_defs.h"
+
 /* This header should be included only by the user module implementing the BMP280GetInstBuf callback which is a
  * part of InitCfg passed to bmp280_create. All other user modules are not allowed to include this header, because
  * otherwise they would know about the BMP280Struct struct definition and can manipulate private data of a BMP280

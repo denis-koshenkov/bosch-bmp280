@@ -25,6 +25,14 @@ typedef enum {
     BMP280_IO_RESULT_CODE_ERR,
 } BMP280_IOResultCode;
 
+typedef struct {
+    /** Temperature in degrees Celsius, resolution is 0.01. Output value "5123" equals 51.23 degrees Celsius. */
+    int32_t temperature;
+    /** Pressure in Pa in Q24.8 format (24 integer bits and 8 fractional bits). Output value "24674867" represents
+     * 24674867/256 = 96386.2 Pa = 963.862 hPa. */
+    uint32_t pressure;
+} BMP280Meas;
+
 /**
  * @brief Callback type to execute when a BMP280 IO transaction is complete.
  *
@@ -40,6 +48,14 @@ typedef void (*BMP280_IOCompleteCb)(uint8_t io_rc, void *user_data);
  * @param user_data User data that was passed to the cb_user_data parameter of @ref BMP280StartTimer.
  */
 typedef void (*BMP280TimerExpiredCb)(void *user_data);
+
+/**
+ * @brief Callback type to execute when the BMP280 driver finishes an operation.
+ *
+ * @param rc Result code that indicates success or the reason for failure. One of @ref BMP280ResultCode.
+ * @param user_data User data.
+ */
+typedef void (*BMP280CompleteCb)(uint8_t rc, void *user_data);
 
 /**
  * @brief Read BMP280 registers.

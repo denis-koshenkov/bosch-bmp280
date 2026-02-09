@@ -45,14 +45,6 @@ typedef struct BMP280Struct *BMP280;
  */
 typedef void *(*BMP280GetInstBuf)(void *user_data);
 
-/**
- * @brief Callback type to execute when the BMP280 driver finishes an operation.
- *
- * @param rc Result code that indicates success or the reason for failure. One of @ref BMP280ResultCode.
- * @param user_data User data.
- */
-typedef void (*BMP280CompleteCb)(uint8_t rc, void *user_data);
-
 typedef enum {
     BMP280_RESULT_CODE_OK = 0,
     BMP280_RESULT_CODE_INVAL_ARG,
@@ -97,14 +89,6 @@ typedef enum {
     /** Sets SPI 3 wire mode. */
     BMP280_SPI_3_WIRE_EN = 1,
 } BMP280Spi3Wire;
-
-typedef struct {
-    /** Temperature in degrees Celsius, resolution is 0.01. Output value "5123" equals 51.23 degrees Celsius. */
-    int32_t temperature;
-    /** Pressure in Pa in Q24.8 format (24 integer bits and 8 fractional bits). Output value "24674867" represents
-     * 24674867/256 = 96386.2 Pa = 963.862 hPa. */
-    uint32_t pressure;
-} BMP280Meas;
 
 typedef struct {
     /** User-defined function to get memory buffer for BMP280 instance. Cannot be NULL. Called once during @ref
